@@ -6,6 +6,9 @@
 ![Status](https://img.shields.io/badge/Status-Experimental-critical)
 ContextSynapse
 
+![Deterministic](https://img.shields.io/badge/Deterministic-Yes-lightgrey)
+![Resilience](https://img.shields.io/badge/Resilience-Tested-green)
+
 ContextSynapse is a local-first, adaptive prompt orchestration engine that treats context like a living system—not a static prefix.
 
 It combines Bayesian learning, contextual matrices, and intentional fault injection to dynamically assemble prompts based on intent, tone, domain, region, and environment. Instead of brittle rules, ContextSynapse evolves through feedback, gracefully degrades under partial failure, and exposes its internal state through an interactive heatmap interface.
