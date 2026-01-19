@@ -1,22 +1,67 @@
 # Context Synapse
+![Swift](https://img.shields.io/badge/Swift-5.8-orange)
+![macOS](https://img.shields.io/badge/macOS-13%2B-blue)
+![Local--First](https://img.shields.io/badge/Architecture-Local--First-success)
+![Bayesian](https://img.shields.io/badge/Learning-Bayesian-purple)
+![Status](https://img.shields.io/badge/Status-Experimental-critical)
+ContextSynapse
 
-AI context management and synchronization tool using Bayesian feedback mechanisms for maintaining coherent conversation state across sessions.
+ContextSynapse is a local-first, adaptive prompt orchestration engine that treats context like a living system—not a static prefix.
 
-## Overview
+It combines Bayesian learning, contextual matrices, and intentional fault injection to dynamically assemble prompts based on intent, tone, domain, region, and environment. Instead of brittle rules, ContextSynapse evolves through feedback, gracefully degrades under partial failure, and exposes its internal state through an interactive heatmap interface.
 
-Context Synapse is a Swift-based tool designed to help manage and synchronize contextual information across AI conversation sessions using Bayesian inference and adaptive weight adjustment. It's particularly useful for individuals with ADHD or anyone who needs to maintain consistent context across multiple interrupted work sessions.
+Built in Swift as a CLI + macOS app + App-Intent-ready core, ContextSynapse is designed for people exploring how human intention, machine response, and uncertainty can coexist inside resilient systems.
 
-The system tracks conversation intents, domains, and tones, applying Bayesian feedback to continuously improve context relevance and accuracy.
+⸻
 
-## Features
+Why this exists
 
-- **Bayesian Feedback System**: Probabilistic weight updates based on user feedback (positive/negative)
-- **Context Persistence**: Save and restore conversation context with weighted regions
-- **State Management**: Track project state, decisions, and progress with intent analysis
-- **Adaptive Learning**: Weights converge based on feedback patterns
-- **ADHD-Friendly**: Designed with neurodivergent users in mind
-- **Privacy-Focused**: Local storage with JSON-based state management
-- **Cross-Platform**: macOS CLI and GUI applications
+Most prompt systems assume:
+	•	perfect inputs
+	•	stable context
+	•	static rules
+
+ContextSynapse assumes the opposite.
+
+It is designed to:
+	•	learn from use (Bayesian priors update with feedback)
+	•	survive damage (controlled fault injection simulates partial data loss)
+	•	remain interpretable (weights, priors, and similarities are visible and adjustable)
+	•	operate locally (no required network or cloud dependency)
+
+This makes it suitable for research, creative tooling, and anyone exploring post-deterministic human–machine interaction models.
+
+⸻
+
+Key Features
+	•	🧠 Bayesian Weighting
+Uses Beta priors to adapt intent, tone, and domain selection over time.
+	•	🧩 Contextual Matrix Engine
+Blends triggers, priors, and live signals into weighted prompt assembly.
+	•	🌍 Regional Similarity Analysis
+Cosine similarity across region vectors with interactive heatmap visualization.
+	•	⚡ Intentional Fragility
+Built-in fault injection (“disintegrating sky plates”) to test resilience under partial failure.
+	•	🧪 Deterministic & Testable
+Unit tests validate convergence, degradation tolerance, and numerical stability.
+	•	🛠 Local-First Architecture
+Swift Package core, CLI, macOS UI, App-Intent ready—no vendor lock-in.
+
+⸻
+
+Philosophy
+
+ContextSynapse treats prompting as a dynamic cognitive process, not a string operation.
+
+Context is not something you prepend.
+It’s something you negotiate, reinforce, and occasionally let fracture.
+
+⸻
+
+Status
+
+Actively evolving.
+Designed as a research-grade scaffold, not a polished consumer product.
 
 ## Architecture
 
