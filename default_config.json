@@ -1,0 +1,62 @@
+{
+  "intents": {
+    "Summarize": 1.0,
+    "Create": 1.0,
+    "Analyze": 1.0,
+    "Brainstorm": 1.0,
+    "ActionableSteps": 1.0
+  },
+  "tones": {
+    "Concise": 1.0,
+    "Technical": 1.0,
+    "Casual": 1.0,
+    "Persuasive": 1.0,
+    "Creative": 1.0
+  },
+  "domains": {
+    "Work": 1.0,
+    "Personal": 1.0,
+    "GameDesign": 1.0,
+    "Marketing": 1.0,
+    "Writing": 1.0
+  },
+  "triggers": {
+    "app.Mail": {
+      "Create": 1.6,
+      "ActionableSteps": 1.2
+    },
+    "app.Notes": {
+      "Create": 1.7,
+      "Creative": 1.4
+    },
+    "time.morning": {
+      "Analyze": 1.25
+    },
+    "focus.DoNotDisturb": {
+      "Concise": 1.6
+    }
+  },
+  "priors": {
+    "intents": {
+      "Summarize": {"alpha": 1, "beta": 1},
+      "Create": {"alpha": 1, "beta": 1},
+      "Analyze": {"alpha": 1, "beta": 1},
+      "Brainstorm": {"alpha": 1, "beta": 1},
+      "ActionableSteps": {"alpha": 1, "beta": 1}
+    },
+    "tones": {
+      "Concise": {"alpha": 1, "beta": 1},
+      "Technical": {"alpha": 1, "beta": 1},
+      "Casual": {"alpha": 1, "beta": 1},
+      "Persuasive": {"alpha": 1, "beta": 1},
+      "Creative": {"alpha": 1, "beta": 1}
+    },
+    "domains": {
+      "Work": {"alpha": 1, "beta": 1},
+      "Personal": {"alpha": 1, "beta": 1},
+      "GameDesign": {"alpha": 1, "beta": 1},
+      "Marketing": {"alpha": 1, "beta": 1},
+      "Writing": {"alpha": 1, "beta": 1}
+    }
+  }
+}
