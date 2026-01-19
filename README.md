@@ -11,7 +11,7 @@ ContextSynapse
 
 ContextSynapse is a local-first, adaptive prompt orchestration engine that treats context like a living system—not a static prefix.
 
-It combines Bayesian learning, contextual matrices, and intentional fault injection to dynamically assemble prompts based on intent, tone, domain, region, and environment. Instead of brittle rules, ContextSynapse evolves through feedback, gracefully degrades under partial failure, and exposes its internal state through an interactive heatmap interface.
+It combines Bayesian learning, contextual matrices, and intentional fault injection to dynamically assemble prompts based on intent, tone, domain, region, and environment. Instead of brittle rules, ContextSynapse is designed to evolve under uncertainty while remaining inspectable and stable.
 
 Built in Swift as a CLI + macOS app + App-Intent-ready core, ContextSynapse is designed for people exploring how human intention, machine response, and uncertainty can coexist inside resilient systems.
 
@@ -58,6 +58,69 @@ ContextSynapse treats prompting as a dynamic cognitive process, not a string ope
 
 Context is not something you prepend.
 It’s something you negotiate, reinforce, and occasionally let fracture.
+
+⸻
+
+## Design Principles
+
+ContextSynapse is not a prompt tool.
+It is an experiment in how humans and machines negotiate meaning under uncertainty.
+
+### 1. Context is probabilistic, not deterministic
+Intent, tone, and domain are not fixed states.  
+They are inferred, reinforced, and revised over time using Bayesian priors.
+
+The system learns by updating beliefs, not overwriting rules.
+
+---
+
+### 2. Systems should survive partial failure
+ContextSynapse includes deliberate fault injection.
+Vectors degrade. Signals disappear. Assumptions fracture.
+
+The system is expected to continue producing *useful* output even when inputs are incomplete or corrupted.
+
+Failure is not an error state—it is a test condition.
+
+---
+
+### 3. Interpretability is a first-class feature
+All weights, priors, and similarity matrices are visible.
+Nothing is hidden behind opaque heuristics.
+
+If the system adapts, you can see *why*.
+
+---
+
+### 4. Local-first is non-negotiable
+All computation, learning, and persistence happen locally.
+
+This preserves:
+- privacy
+- determinism
+- debuggability
+- long-term stability
+
+Cloud integration is optional. Dependency is not.
+
+---
+
+### 5. Prompting is a cognitive process
+Prompt construction is treated as a dynamic interaction between:
+- intention
+- environment
+- history
+- uncertainty
+
+Strings are outputs, not the system.
+
+---
+
+### 6. Fragility is intentional
+ContextSynapse is designed with controlled weak points.
+These “breaks” expose assumptions and prevent false confidence.
+
+A system that never breaks is a system you don’t understand.
 
 ⸻
 
