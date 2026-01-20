@@ -57,6 +57,24 @@ public struct Region: Codable, Equatable {
     }
 }
 
+// MARK: - Export/Import Bundle
+/// Complete export bundle containing all ContextSynapse state
+public struct ExportBundle: Codable {
+    public let version: String
+    public let exportDate: String
+    public let weights: Weights
+    public let regions: [Region]
+    public let metadata: [String: String]
+    
+    public init(version: String = "1.0", exportDate: String, weights: Weights, regions: [Region], metadata: [String: String] = [:]) {
+        self.version = version
+        self.exportDate = exportDate
+        self.weights = weights
+        self.regions = regions
+        self.metadata = metadata
+    }
+}
+
 // MARK: - SynapseCore class
 public class SynapseCore {
     let fm = FileManager.default
@@ -317,5 +335,115 @@ public class SynapseCore {
         if let d = try? JSONEncoder().encode(run) {
             try? d.write(to: file, options: .atomic)
         }
+    }
+    
+    // MARK: - Export/Import
+    
+    /// Export complete state (weights + regions + metadata) to a file
+    /// - Parameters:
+    ///   - url: Destination file URL
+    ///   - metadata: Optional metadata dictionary (e.g., user, description)
+    /// - Returns: true if export succeeded
+    @discardableResult
+    public func exportState(to url: URL, metadata: [String: String] = [:]) -> Bool {
+        let weights = loadOrCreateDefaultWeights()
+        let regions = loadOrSeedRegions()
+        let exportDate = ISO8601DateFormatter().string(from: Date())
+        
+        let bundle = ExportBundle(
+            version: "1.0",
+            exportDate: exportDate,
+            weights: weights,
+            regions: regions,
+            metadata: metadata
+        )
+        
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        
+        guard let data = try? encoder.encode(bundle) else { return false }
+        do {
+            try data.write(to: url, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+    
+    /// Import state from an export bundle file
+    /// - Parameters:
+    ///   - url: Source file URL
+    ///   - merge: If true, merge with existing data; if false, replace completely
+    /// - Returns: true if import succeeded
+    @discardableResult
+    public func importState(from url: URL, merge: Bool = false) -> Bool {
+        guard let data = try? Data(contentsOf: url) else { return false }
+        guard let bundle = try? JSONDecoder().decode(ExportBundle.self, from: data) else { return false }
+        
+        if merge {
+            // Merge mode: combine priors and weights intelligently
+            var currentWeights = loadOrCreateDefaultWeights()
+            
+            // Merge priors (average alpha/beta values)
+            for (key, prior) in bundle.weights.priors.intents {
+                if let existing = currentWeights.priors.intents[key] {
+                    currentWeights.priors.intents[key] = Prior(
+                        alpha: (existing.alpha + prior.alpha) / 2.0,
+                        beta: (existing.beta + prior.beta) / 2.0
+                    )
+                } else {
+                    currentWeights.priors.intents[key] = prior
+                }
+            }
+            
+            for (key, prior) in bundle.weights.priors.tones {
+                if let existing = currentWeights.priors.tones[key] {
+                    currentWeights.priors.tones[key] = Prior(
+                        alpha: (existing.alpha + prior.alpha) / 2.0,
+                        beta: (existing.beta + prior.beta) / 2.0
+                    )
+                } else {
+                    currentWeights.priors.tones[key] = prior
+                }
+            }
+            
+            for (key, prior) in bundle.weights.priors.domains {
+                if let existing = currentWeights.priors.domains[key] {
+                    currentWeights.priors.domains[key] = Prior(
+                        alpha: (existing.alpha + prior.alpha) / 2.0,
+                        beta: (existing.beta + prior.beta) / 2.0
+                    )
+                } else {
+                    currentWeights.priors.domains[key] = prior
+                }
+            }
+            
+            // Recompute weights from merged priors
+            for (k, prior) in currentWeights.priors.intents {
+                currentWeights.intents[k] = mapPriorToWeight(prior)
+            }
+            for (k, prior) in currentWeights.priors.tones {
+                currentWeights.tones[k] = mapPriorToWeight(prior)
+            }
+            for (k, prior) in currentWeights.priors.domains {
+                currentWeights.domains[k] = mapPriorToWeight(prior)
+            }
+            
+            saveWeights(currentWeights)
+            
+            // Merge regions (add new ones, keep existing)
+            var currentRegions = loadOrSeedRegions()
+            let existingNames = Set(currentRegions.map { $0.name })
+            for region in bundle.regions where !existingNames.contains(region.name) {
+                currentRegions.append(region)
+            }
+            saveRegions(currentRegions)
+        } else {
+            // Replace mode: overwrite with imported data
+            saveWeights(bundle.weights)
+            saveRegions(bundle.regions)
+        }
+        
+        return true
     }
 }
