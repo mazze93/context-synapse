@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/SynapseCore.build/master.swiftdeps"
+  },
+  "/home/runner/work/context-synapse/context-synapse/Sources/SynapseCore/SynapseCore.swift": {
+    "dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/SynapseCore.build/SynapseCore.d",
+    "object": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/SynapseCore.build/SynapseCore.swift.o",
+    "swiftmodule": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/SynapseCore.build/SynapseCore~partial.swiftmodule",
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/SynapseCore.build/SynapseCore.swiftdeps",
+    "diagnostics": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/SynapseCore.build/SynapseCore.dia"
+  }
+}

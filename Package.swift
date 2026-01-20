@@ -12,6 +12,7 @@ let package = Package(
     targets: [
         .target(name: "SynapseCore", path: "Sources/SynapseCore"),
         .executableTarget(name: "contextsynapse", dependencies: ["SynapseCore"], path: "Sources/contextsynapse"),
-        .executableTarget(name: "ContextSynapseApp", dependencies: ["SynapseCore"], path: "Sources/ContextSynapseApp")
+        .executableTarget(name: "ContextSynapseApp", dependencies: ["SynapseCore"], path: "Sources/ContextSynapseApp"),
+        .testTarget(name: "BayesianConvergenceTests", dependencies: ["SynapseCore"], path: "Tests")
     ]
 )

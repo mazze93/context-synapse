@@ -1,4 +1,137 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+// MARK: - AI Platform Integration
+
+/// Protocol for AI platform clients
+public protocol AIClient {
+    func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void)
+}
+
+/// Configuration for AI platforms
+public struct AIConfig: Codable {
+    public let provider: String  // "openai" or "anthropic"
+    public let apiKey: String
+    public let model: String
+    public let maxTokens: Int
+    
+    public init(provider: String, apiKey: String, model: String, maxTokens: Int = 1000) {
+        self.provider = provider
+        self.apiKey = apiKey
+        self.model = model
+        self.maxTokens = maxTokens
+    }
+}
+
+/// OpenAI API client implementation
+public class OpenAIClient: AIClient {
+    private let apiKey: String
+    private let model: String
+    private let maxTokens: Int
+    
+    public init(apiKey: String, model: String = "gpt-4", maxTokens: Int = 1000) {
+        self.apiKey = apiKey
+        self.model = model
+        self.maxTokens = maxTokens
+    }
+    
+    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [["role": "user", "content": prompt]],
+            "max_tokens": maxTokens
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let choices = json["choices"] as? [[String: Any]],
+               let message = choices.first?["message"] as? [String: Any],
+               let content = message["content"] as? String {
+                completion(.success(content))
+            } else {
+                completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
+            }
+        }.resume()
+    }
+}
+
+/// Anthropic API client implementation
+public class AnthropicClient: AIClient {
+    private let apiKey: String
+    private let model: String
+    private let maxTokens: Int
+    
+    public init(apiKey: String, model: String = "claude-3-sonnet-20240229", maxTokens: Int = 1000) {
+        self.apiKey = apiKey
+        self.model = model
+        self.maxTokens = maxTokens
+    }
+    
+    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+            completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [["role": "user", "content": prompt]],
+            "max_tokens": maxTokens
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let content = json["content"] as? [[String: Any]],
+               let text = content.first?["text"] as? String {
+                completion(.success(text))
+            } else {
+                completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
+            }
+        }.resume()
+    }
+}
 
 // MARK: - Prior (Bayesian Beta distribution)
 public struct Prior: Codable, Equatable {
@@ -57,6 +190,40 @@ public struct Region: Codable, Equatable {
     }
 }
 
+// MARK: - Export/Import Bundle
+/// Complete export bundle containing all ContextSynapse state
+public struct ExportBundle: Codable {
+    public let version: String
+    public let exportDate: String
+    public let weights: Weights
+    public let regions: [Region]
+    public let metadata: [String: String]
+    
+    public init(version: String = "1.0", exportDate: String, weights: Weights, regions: [Region], metadata: [String: String] = [:]) {
+        self.version = version
+        self.exportDate = exportDate
+        self.weights = weights
+        self.regions = regions
+        self.metadata = metadata
+    }
+}
+
+// MARK: - User Profile
+/// User profile for multi-user support
+public struct UserProfile: Codable, Equatable {
+    public let id: String
+    public var displayName: String
+    public let createdAt: String
+    public var lastUsedAt: String
+    
+    public init(id: String, displayName: String, createdAt: String, lastUsedAt: String) {
+        self.id = id
+        self.displayName = displayName
+        self.createdAt = createdAt
+        self.lastUsedAt = lastUsedAt
+    }
+}
+
 // MARK: - SynapseCore class
 public class SynapseCore {
     let fm = FileManager.default
@@ -64,18 +231,33 @@ public class SynapseCore {
     public let configURL: URL
     public let regionsURL: URL
     public let logDir: URL
+    public let usersDir: URL
+    public var currentUser: String
     
     /// Fault injection probability (0.0 by default). Can be set via env var CONTEXT_SYNAPSE_FAULT_PROB
     public var faultProbability: Double = 0.0
     
-    public init(folderName: String = "ContextSynapse") {
+    public init(folderName: String = "ContextSynapse", user: String = "default") {
         let home = fm.homeDirectoryForCurrentUser
-        self.appSupport = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
-        self.configURL = appSupport.appendingPathComponent("config.json")
-        self.regionsURL = appSupport.appendingPathComponent("regions.json")
-        self.logDir = appSupport.appendingPathComponent("logs")
+        let baseDir = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
+        self.appSupport = baseDir
+        self.usersDir = baseDir.appendingPathComponent("users")
+        self.currentUser = user
+        
+        // Create user-specific directories
+        let userDir = usersDir.appendingPathComponent(user)
+        self.configURL = userDir.appendingPathComponent("config.json")
+        self.regionsURL = userDir.appendingPathComponent("regions.json")
+        self.logDir = userDir.appendingPathComponent("logs")
+        
         try? fm.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: usersDir, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: userDir, withIntermediateDirectories: true)
         try? fm.createDirectory(at: logDir, withIntermediateDirectories: true)
+        
+        // Create or update user profile
+        updateUserProfile()
+        
         // init faultProbability from environment (useful for testing)
         if let env = ProcessInfo.processInfo.environment["CONTEXT_SYNAPSE_FAULT_PROB"], let v = Double(env) {
             self.faultProbability = max(0.0, min(1.0, v))
@@ -190,9 +372,9 @@ public class SynapseCore {
                 map[dictKey]!.beta += 1.0
             }
         }
-        bump(chosenIntent, in: &w.priors.intents)
-        bump(chosenTone, in: &w.priors.tones)
-        bump(chosenDomain, in: &w.priors.domains)
+        bump(dictKey: chosenIntent, in: &w.priors.intents)
+        bump(dictKey: chosenTone, in: &w.priors.tones)
+        bump(dictKey: chosenDomain, in: &w.priors.domains)
         // recompute numeric weights from priors (keeps alignement)
         for (k, prior) in w.priors.intents { w.intents[k] = mapPriorToWeight(prior) }
         for (k, prior) in w.priors.tones { w.tones[k] = mapPriorToWeight(prior) }
@@ -299,6 +481,16 @@ public class SynapseCore {
         public let chosenDomain: String
         public let assembledPrompt: String
         public let context: [String:String]
+        
+        public init(timestamp: String, input: String, chosenIntent: String, chosenTone: String, chosenDomain: String, assembledPrompt: String, context: [String:String]) {
+            self.timestamp = timestamp
+            self.input = input
+            self.chosenIntent = chosenIntent
+            self.chosenTone = chosenTone
+            self.chosenDomain = chosenDomain
+            self.assembledPrompt = assembledPrompt
+            self.context = context
+        }
     }
     
     public func logRun(_ run: RunLog) {
@@ -307,5 +499,166 @@ public class SynapseCore {
         if let d = try? JSONEncoder().encode(run) {
             try? d.write(to: file, options: .atomic)
         }
+    }
+    
+    // MARK: - Export/Import
+    
+    /// Export complete state (weights + regions + metadata) to a file
+    /// - Parameters:
+    ///   - url: Destination file URL
+    ///   - metadata: Optional metadata dictionary (e.g., user, description)
+    /// - Returns: true if export succeeded
+    @discardableResult
+    public func exportState(to url: URL, metadata: [String: String] = [:]) -> Bool {
+        let weights = loadOrCreateDefaultWeights()
+        let regions = loadOrSeedRegions()
+        let exportDate = ISO8601DateFormatter().string(from: Date())
+        
+        let bundle = ExportBundle(
+            version: "1.0",
+            exportDate: exportDate,
+            weights: weights,
+            regions: regions,
+            metadata: metadata
+        )
+        
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        
+        guard let data = try? encoder.encode(bundle) else { return false }
+        do {
+            try data.write(to: url, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+    
+    /// Import state from an export bundle file
+    /// - Parameters:
+    ///   - url: Source file URL
+    ///   - merge: If true, merge with existing data; if false, replace completely
+    /// - Returns: true if import succeeded
+    @discardableResult
+    public func importState(from url: URL, merge: Bool = false) -> Bool {
+        guard let data = try? Data(contentsOf: url) else { return false }
+        guard let bundle = try? JSONDecoder().decode(ExportBundle.self, from: data) else { return false }
+        
+        if merge {
+            // Merge mode: combine priors and weights intelligently
+            var currentWeights = loadOrCreateDefaultWeights()
+            
+            // Merge priors (average alpha/beta values)
+            for (key, prior) in bundle.weights.priors.intents {
+                if let existing = currentWeights.priors.intents[key] {
+                    currentWeights.priors.intents[key] = Prior(
+                        alpha: (existing.alpha + prior.alpha) / 2.0,
+                        beta: (existing.beta + prior.beta) / 2.0
+                    )
+                } else {
+                    currentWeights.priors.intents[key] = prior
+                }
+            }
+            
+            for (key, prior) in bundle.weights.priors.tones {
+                if let existing = currentWeights.priors.tones[key] {
+                    currentWeights.priors.tones[key] = Prior(
+                        alpha: (existing.alpha + prior.alpha) / 2.0,
+                        beta: (existing.beta + prior.beta) / 2.0
+                    )
+                } else {
+                    currentWeights.priors.tones[key] = prior
+                }
+            }
+            
+            for (key, prior) in bundle.weights.priors.domains {
+                if let existing = currentWeights.priors.domains[key] {
+                    currentWeights.priors.domains[key] = Prior(
+                        alpha: (existing.alpha + prior.alpha) / 2.0,
+                        beta: (existing.beta + prior.beta) / 2.0
+                    )
+                } else {
+                    currentWeights.priors.domains[key] = prior
+                }
+            }
+            
+            // Recompute weights from merged priors
+            for (k, prior) in currentWeights.priors.intents {
+                currentWeights.intents[k] = mapPriorToWeight(prior)
+            }
+            for (k, prior) in currentWeights.priors.tones {
+                currentWeights.tones[k] = mapPriorToWeight(prior)
+            }
+            for (k, prior) in currentWeights.priors.domains {
+                currentWeights.domains[k] = mapPriorToWeight(prior)
+            }
+            
+            saveWeights(currentWeights)
+            
+            // Merge regions (add new ones, keep existing)
+            var currentRegions = loadOrSeedRegions()
+            let existingNames = Set(currentRegions.map { $0.name })
+            for region in bundle.regions where !existingNames.contains(region.name) {
+                currentRegions.append(region)
+            }
+            saveRegions(currentRegions)
+        } else {
+            // Replace mode: overwrite with imported data
+            saveWeights(bundle.weights)
+            saveRegions(bundle.regions)
+        }
+        
+        return true
+    }
+    
+    // MARK: - Multi-user Management
+    
+    /// Get or create user profile
+    private func updateUserProfile() {
+        let profileURL = usersDir.appendingPathComponent(currentUser).appendingPathComponent("profile.json")
+        let now = ISO8601DateFormatter().string(from: Date())
+        
+        if let data = try? Data(contentsOf: profileURL),
+           var profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            // Update last used timestamp
+            profile.lastUsedAt = now
+            if let d = try? JSONEncoder().encode(profile) {
+                try? d.write(to: profileURL, options: .atomic)
+            }
+        } else {
+            // Create new profile
+            let profile = UserProfile(
+                id: currentUser,
+                displayName: currentUser.capitalized,
+                createdAt: now,
+                lastUsedAt: now
+            )
+            if let d = try? JSONEncoder().encode(profile) {
+                try? d.write(to: profileURL, options: .atomic)
+            }
+        }
+    }
+    
+    /// List all user profiles
+    public func listUsers() -> [UserProfile] {
+        guard let userDirs = try? fm.contentsOfDirectory(at: usersDir, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        
+        var profiles: [UserProfile] = []
+        for userDir in userDirs where userDir.hasDirectoryPath {
+            let profileURL = userDir.appendingPathComponent("profile.json")
+            if let data = try? Data(contentsOf: profileURL),
+               let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+                profiles.append(profile)
+            }
+        }
+        
+        return profiles.sorted { $0.lastUsedAt > $1.lastUsedAt }
+    }
+    
+    /// Switch to a different user (requires reinitializing SynapseCore)
+    public static func switchUser(to user: String, folderName: String = "ContextSynapse") -> SynapseCore {
+        return SynapseCore(folderName: folderName, user: user)
     }
 }
