@@ -129,6 +129,6 @@ if let fb = feedbackFlag?.lowercased() {
         core.applyFeedbackUpdate(chosenIntent: chosenIntent, chosenTone: chosenTone, chosenDomain: chosenDomain, positive: false)
         print("Feedback applied: negative priors updated.")
     } else {
-        print("Unknown feedback token '\ (fb)'. Use 'good' or 'bad'.")
+        print("Unknown feedback token '\(fb)'. Use 'good' or 'bad'.")
     }
 }

@@ -190,9 +190,9 @@ public class SynapseCore {
                 map[dictKey]!.beta += 1.0
             }
         }
-        bump(chosenIntent, in: &w.priors.intents)
-        bump(chosenTone, in: &w.priors.tones)
-        bump(chosenDomain, in: &w.priors.domains)
+        bump(dictKey: chosenIntent, in: &w.priors.intents)
+        bump(dictKey: chosenTone, in: &w.priors.tones)
+        bump(dictKey: chosenDomain, in: &w.priors.domains)
         // recompute numeric weights from priors (keeps alignement)
         for (k, prior) in w.priors.intents { w.intents[k] = mapPriorToWeight(prior) }
         for (k, prior) in w.priors.tones { w.tones[k] = mapPriorToWeight(prior) }
@@ -299,6 +299,16 @@ public class SynapseCore {
         public let chosenDomain: String
         public let assembledPrompt: String
         public let context: [String:String]
+        
+        public init(timestamp: String, input: String, chosenIntent: String, chosenTone: String, chosenDomain: String, assembledPrompt: String, context: [String:String]) {
+            self.timestamp = timestamp
+            self.input = input
+            self.chosenIntent = chosenIntent
+            self.chosenTone = chosenTone
+            self.chosenDomain = chosenDomain
+            self.assembledPrompt = assembledPrompt
+            self.context = context
+        }
     }
     
     public func logRun(_ run: RunLog) {
