@@ -425,6 +425,18 @@ let core = SynapseCore(user: "default")
 - Consider request queuing for high volume
 - Rate limiting per provider's requirements
 
+**Known Limitations:**
+- Silent error handling with `try?` in serialization (consistent with codebase pattern)
+- Hard-coded Anthropic API version (2023-06-01) - consider making configurable
+- No request retry logic - failures are reported immediately
+
+**Future Improvements:**
+- Add structured logging for API errors
+- Make API versions configurable via AIConfig
+- Add request retry with exponential backoff
+- Add request timeout configuration
+- Add request/response logging for debugging
+
 ---
 
 ## Contributing
