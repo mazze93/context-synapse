@@ -1,4 +1,137 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+// MARK: - AI Platform Integration
+
+/// Protocol for AI platform clients
+public protocol AIClient {
+    func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void)
+}
+
+/// Configuration for AI platforms
+public struct AIConfig: Codable {
+    public let provider: String  // "openai" or "anthropic"
+    public let apiKey: String
+    public let model: String
+    public let maxTokens: Int
+    
+    public init(provider: String, apiKey: String, model: String, maxTokens: Int = 1000) {
+        self.provider = provider
+        self.apiKey = apiKey
+        self.model = model
+        self.maxTokens = maxTokens
+    }
+}
+
+/// OpenAI API client implementation
+public class OpenAIClient: AIClient {
+    private let apiKey: String
+    private let model: String
+    private let maxTokens: Int
+    
+    public init(apiKey: String, model: String = "gpt-4", maxTokens: Int = 1000) {
+        self.apiKey = apiKey
+        self.model = model
+        self.maxTokens = maxTokens
+    }
+    
+    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [["role": "user", "content": prompt]],
+            "max_tokens": maxTokens
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let choices = json["choices"] as? [[String: Any]],
+               let message = choices.first?["message"] as? [String: Any],
+               let content = message["content"] as? String {
+                completion(.success(content))
+            } else {
+                completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
+            }
+        }.resume()
+    }
+}
+
+/// Anthropic API client implementation
+public class AnthropicClient: AIClient {
+    private let apiKey: String
+    private let model: String
+    private let maxTokens: Int
+    
+    public init(apiKey: String, model: String = "claude-3-sonnet-20240229", maxTokens: Int = 1000) {
+        self.apiKey = apiKey
+        self.model = model
+        self.maxTokens = maxTokens
+    }
+    
+    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+            completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [["role": "user", "content": prompt]],
+            "max_tokens": maxTokens
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let content = json["content"] as? [[String: Any]],
+               let text = content.first?["text"] as? String {
+                completion(.success(text))
+            } else {
+                completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
+            }
+        }.resume()
+    }
+}
 
 // MARK: - Prior (Bayesian Beta distribution)
 public struct Prior: Codable, Equatable {
@@ -75,6 +208,22 @@ public struct ExportBundle: Codable {
     }
 }
 
+// MARK: - User Profile
+/// User profile for multi-user support
+public struct UserProfile: Codable, Equatable {
+    public let id: String
+    public var displayName: String
+    public let createdAt: String
+    public var lastUsedAt: String
+    
+    public init(id: String, displayName: String, createdAt: String, lastUsedAt: String) {
+        self.id = id
+        self.displayName = displayName
+        self.createdAt = createdAt
+        self.lastUsedAt = lastUsedAt
+    }
+}
+
 // MARK: - SynapseCore class
 public class SynapseCore {
     let fm = FileManager.default
@@ -82,18 +231,33 @@ public class SynapseCore {
     public let configURL: URL
     public let regionsURL: URL
     public let logDir: URL
+    public let usersDir: URL
+    public var currentUser: String
     
     /// Fault injection probability (0.0 by default). Can be set via env var CONTEXT_SYNAPSE_FAULT_PROB
     public var faultProbability: Double = 0.0
     
-    public init(folderName: String = "ContextSynapse") {
+    public init(folderName: String = "ContextSynapse", user: String = "default") {
         let home = fm.homeDirectoryForCurrentUser
-        self.appSupport = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
-        self.configURL = appSupport.appendingPathComponent("config.json")
-        self.regionsURL = appSupport.appendingPathComponent("regions.json")
-        self.logDir = appSupport.appendingPathComponent("logs")
+        let baseDir = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
+        self.appSupport = baseDir
+        self.usersDir = baseDir.appendingPathComponent("users")
+        self.currentUser = user
+        
+        // Create user-specific directories
+        let userDir = usersDir.appendingPathComponent(user)
+        self.configURL = userDir.appendingPathComponent("config.json")
+        self.regionsURL = userDir.appendingPathComponent("regions.json")
+        self.logDir = userDir.appendingPathComponent("logs")
+        
         try? fm.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: usersDir, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: userDir, withIntermediateDirectories: true)
         try? fm.createDirectory(at: logDir, withIntermediateDirectories: true)
+        
+        // Create or update user profile
+        updateUserProfile()
+        
         // init faultProbability from environment (useful for testing)
         if let env = ProcessInfo.processInfo.environment["CONTEXT_SYNAPSE_FAULT_PROB"], let v = Double(env) {
             self.faultProbability = max(0.0, min(1.0, v))
@@ -445,5 +609,56 @@ public class SynapseCore {
         }
         
         return true
+    }
+    
+    // MARK: - Multi-user Management
+    
+    /// Get or create user profile
+    private func updateUserProfile() {
+        let profileURL = usersDir.appendingPathComponent(currentUser).appendingPathComponent("profile.json")
+        let now = ISO8601DateFormatter().string(from: Date())
+        
+        if let data = try? Data(contentsOf: profileURL),
+           var profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            // Update last used timestamp
+            profile.lastUsedAt = now
+            if let d = try? JSONEncoder().encode(profile) {
+                try? d.write(to: profileURL, options: .atomic)
+            }
+        } else {
+            // Create new profile
+            let profile = UserProfile(
+                id: currentUser,
+                displayName: currentUser.capitalized,
+                createdAt: now,
+                lastUsedAt: now
+            )
+            if let d = try? JSONEncoder().encode(profile) {
+                try? d.write(to: profileURL, options: .atomic)
+            }
+        }
+    }
+    
+    /// List all user profiles
+    public func listUsers() -> [UserProfile] {
+        guard let userDirs = try? fm.contentsOfDirectory(at: usersDir, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        
+        var profiles: [UserProfile] = []
+        for userDir in userDirs where userDir.hasDirectoryPath {
+            let profileURL = userDir.appendingPathComponent("profile.json")
+            if let data = try? Data(contentsOf: profileURL),
+               let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+                profiles.append(profile)
+            }
+        }
+        
+        return profiles.sorted { $0.lastUsedAt > $1.lastUsedAt }
+    }
+    
+    /// Switch to a different user (requires reinitializing SynapseCore)
+    public static func switchUser(to user: String, folderName: String = "ContextSynapse") -> SynapseCore {
+        return SynapseCore(folderName: folderName, user: user)
     }
 }
