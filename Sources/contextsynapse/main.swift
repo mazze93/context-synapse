@@ -2,9 +2,68 @@ import Foundation
 import SynapseCore
 
 let core = SynapseCore()
-var weights = core.loadOrCreateDefaultWeights()
-
 let args = CommandLine.arguments
+
+// Check for special commands first (export/import)
+if args.count >= 2 {
+    if args[1] == "--export" {
+        if args.count < 3 {
+            fputs("Usage: contextsynapse --export <output-file.json> [--metadata key=value ...]\n", stderr)
+            exit(1)
+        }
+        let outputFile = args[2]
+        var metadata: [String: String] = [:]
+        
+        // Parse metadata
+        var i = 3
+        while i < args.count {
+            if args[i] == "--metadata" && i + 1 < args.count {
+                let parts = args[i + 1].split(separator: "=", maxSplits: 1)
+                if parts.count == 2 {
+                    metadata[String(parts[0])] = String(parts[1])
+                }
+                i += 2
+            } else {
+                i += 1
+            }
+        }
+        
+        let url = URL(fileURLWithPath: outputFile)
+        if core.exportState(to: url, metadata: metadata) {
+            print("Successfully exported state to: \(outputFile)")
+            exit(0)
+        } else {
+            fputs("Error: Failed to export state\n", stderr)
+            exit(1)
+        }
+    }
+    
+    if args[1] == "--import" {
+        if args.count < 3 {
+            fputs("Usage: contextsynapse --import <input-file.json> [--merge]\n", stderr)
+            exit(1)
+        }
+        let inputFile = args[2]
+        let merge = args.contains("--merge")
+        
+        let url = URL(fileURLWithPath: inputFile)
+        if core.importState(from: url, merge: merge) {
+            print("Successfully imported state from: \(inputFile)")
+            if merge {
+                print("Mode: Merged with existing data")
+            } else {
+                print("Mode: Replaced existing data")
+            }
+            exit(0)
+        } else {
+            fputs("Error: Failed to import state\n", stderr)
+            exit(1)
+        }
+    }
+}
+
+// Regular query processing
+var weights = core.loadOrCreateDefaultWeights()
 var providedQuery: String? = nil
 var flagApp: String? = nil
 var flagFocus: String? = nil
@@ -64,6 +123,8 @@ if providedQuery == nil {
 
 guard let userQuery = providedQuery?.trimmingCharacters(in: .whitespacesAndNewlines), !userQuery.isEmpty else {
     fputs("Usage: contextsynapse <your query> [--app Mail] [--focus Home] [--intent Brainstorm] [--tone Casual] [--domain Work] [--time HH:MM] [--feedback good|bad] [--fault-prob 0.0-1.0]\n", stderr)
+    fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...]\n", stderr)
+    fputs("       contextsynapse --import <input-file.json> [--merge]\n", stderr)
     exit(1)
 }
 
@@ -129,6 +190,6 @@ if let fb = feedbackFlag?.lowercased() {
         core.applyFeedbackUpdate(chosenIntent: chosenIntent, chosenTone: chosenTone, chosenDomain: chosenDomain, positive: false)
         print("Feedback applied: negative priors updated.")
     } else {
-        print("Unknown feedback token '\ (fb)'. Use 'good' or 'bad'.")
+        print("Unknown feedback token '\(fb)'. Use 'good' or 'bad'.")
     }
 }

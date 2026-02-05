@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Swift build artifacts
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+
 # Distribution / packaging
 .Python
 build/

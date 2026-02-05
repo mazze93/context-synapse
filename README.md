@@ -189,8 +189,17 @@ contextsynapse --feedback positive --intent Technical --domain Work
 # Apply negative feedback to "Casual" tone
 contextsynapse --feedback negative --tone Casual
 
-# View current weights (loads from default_config.json)
-contextsynapse --status
+# Export current state to a file
+contextsynapse --export backup.json --metadata user=johndoe --metadata purpose=backup
+
+# Import state from a file (replace mode)
+contextsynapse --import backup.json
+
+# Import state with merge (average priors with existing)
+contextsynapse --import backup.json --merge
+
+# Use a specific user profile
+contextsynapse --user johndoe "Summarize this document"
 ```
 
 ### Programmatic Usage
@@ -198,8 +207,8 @@ contextsynapse --status
 ```swift
 import SynapseCore
 
-// Initialize core with default priors
-let core = SynapseCore()
+// Initialize core with default priors for a specific user
+let core = SynapseCore(user: "johndoe")
 
 // Apply feedback update
 core.applyFeedbackUpdate(
@@ -210,11 +219,33 @@ core.applyFeedbackUpdate(
 )
 
 // Compute region similarities
-let regions = core.loadOrCreateRegions()
+let regions = core.loadOrSeedRegions()
 let (matrix, nearest) = core.computeRegionSimilarities(regionsIn: regions)
 
-// Save state
-core.saveWeights("~/.context-synapse/weights.json")
+// Export state
+let exportURL = URL(fileURLWithPath: "backup.json")
+core.exportState(to: exportURL, metadata: ["user": "johndoe"])
+
+// Import state
+core.importState(from: exportURL, merge: true)
+
+// List all user profiles
+let users = core.listUsers()
+for user in users {
+    print("User: \(user.displayName), Last used: \(user.lastUsedAt)")
+}
+
+// AI Integration
+let openai = OpenAIClient(apiKey: "your-api-key")
+let prompt = "[Formal] [Technical] [Work]: Explain neural networks"
+openai.sendPrompt(prompt) { result in
+    switch result {
+    case .success(let response):
+        print("AI Response: \(response)")
+    case .failure(let error):
+        print("Error: \(error)")
+    }
+}
 ```
 
 ## Use Cases
@@ -225,6 +256,9 @@ core.saveWeights("~/.context-synapse/weights.json")
 - Managing multiple concurrent projects without losing context
 - Adaptive learning of user preferences over time
 - ADHD-friendly context recovery after interruptions
+- **Multi-user support:** Separate contexts for different team members or personas
+- **Export/Import:** Backup and restore context, share configurations
+- **AI Integration:** Direct integration with OpenAI and Anthropic for enhanced prompting
 
 ## Project Structure
 
@@ -305,11 +339,11 @@ Created by mazze93 as part of a collection of tools designed to support neurodiv
 - [x] JSON-based state persistence
 - [x] Cosine similarity for region matching
 - [x] Comprehensive test suite
-- [ ] Multi-user support
-- [ ] Cloud sync (encrypted)
-- [ ] Browser extension integration
-- [ ] Export/import functionality
-- [ ] Advanced visualization dashboards
-- [ ] Integration with popular AI platforms (OpenAI, Anthropic)
+- [x] Multi-user support
+- [x] Export/import functionality
+- [x] Integration with popular AI platforms (OpenAI, Anthropic)
+- [ ] Cloud sync (encrypted) - *Foundation laid, needs encryption implementation*
+- [ ] Browser extension integration - *Architecture documented*
+- [ ] Advanced visualization dashboards - *Basic heatmap exists, needs metrics tracking*
 - [ ] Context versioning and history
 - [ ] Collaborative context sharing

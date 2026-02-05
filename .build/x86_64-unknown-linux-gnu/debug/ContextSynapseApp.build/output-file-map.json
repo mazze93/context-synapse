@@ -1,0 +1,40 @@
+{
+  "": {
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/master.swiftdeps"
+  },
+  "/home/runner/work/context-synapse/context-synapse/Sources/ContextSynapseApp/AppMain.swift": {
+    "dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppMain.d",
+    "object": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppMain.swift.o",
+    "swiftmodule": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppMain~partial.swiftmodule",
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppMain.swiftdeps",
+    "diagnostics": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppMain.dia"
+  },
+  "/home/runner/work/context-synapse/context-synapse/Sources/ContextSynapseApp/AppShortcutsBridge.swift": {
+    "dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppShortcutsBridge.d",
+    "object": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppShortcutsBridge.swift.o",
+    "swiftmodule": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppShortcutsBridge~partial.swiftmodule",
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppShortcutsBridge.swiftdeps",
+    "diagnostics": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/AppShortcutsBridge.dia"
+  },
+  "/home/runner/work/context-synapse/context-synapse/Sources/ContextSynapseApp/ContentView.swift": {
+    "dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/ContentView.d",
+    "object": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/ContentView.swift.o",
+    "swiftmodule": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/ContentView~partial.swiftmodule",
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/ContentView.swiftdeps",
+    "diagnostics": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/ContentView.dia"
+  },
+  "/home/runner/work/context-synapse/context-synapse/Sources/ContextSynapseApp/HeatmapView.swift": {
+    "dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/HeatmapView.d",
+    "object": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/HeatmapView.swift.o",
+    "swiftmodule": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/HeatmapView~partial.swiftmodule",
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/HeatmapView.swiftdeps",
+    "diagnostics": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/HeatmapView.dia"
+  },
+  "/home/runner/work/context-synapse/context-synapse/Sources/ContextSynapseApp/WeightGridView.swift": {
+    "dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/WeightGridView.d",
+    "object": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/WeightGridView.swift.o",
+    "swiftmodule": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/WeightGridView~partial.swiftmodule",
+    "swift-dependencies": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/WeightGridView.swiftdeps",
+    "diagnostics": "/home/runner/work/context-synapse/context-synapse/.build/x86_64-unknown-linux-gnu/debug/ContextSynapseApp.build/WeightGridView.dia"
+  }
+}
