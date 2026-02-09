@@ -3,6 +3,17 @@ import Foundation
 import FoundationNetworking
 #endif
 
+// MARK: - Utility: stderr helper
+private var standardError = FileHandle.standardError
+
+extension FileHandle: TextOutputStream {
+    public func write(_ string: String) {
+        if let data = string.data(using: .utf8) {
+            try? write(contentsOf: data)
+        }
+    }
+}
+
 // MARK: - AI Platform Integration
 
 /// Protocol for AI platform clients
@@ -25,16 +36,77 @@ public struct AIConfig: Codable {
     }
 }
 
+/// Base implementation for HTTP-based AI clients with security and error handling
+class BaseHTTPAIClient {
+    private let session: URLSession
+    
+    init(timeoutInterval: TimeInterval = 30.0) {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = timeoutInterval
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        self.session = URLSession(configuration: config)
+    }
+    
+    func sendRequest(
+        url: URL,
+        headers: [String: String],
+        body: [String: Any],
+        responseParser: @escaping ([String: Any]) -> String?,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        for (key, value) in headers {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
+            completion(.failure(NSError(domain: "AIClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to serialize request"])))
+            return
+        }
+        request.httpBody = httpBody
+        
+        session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            // Validate HTTP status code
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                let message = "HTTP error: \(httpResponse.statusCode)"
+                completion(.failure(NSError(domain: "AIClient", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message])))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(NSError(domain: "AIClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let content = responseParser(json) else {
+                completion(.failure(NSError(domain: "AIClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
+                return
+            }
+            
+            completion(.success(content))
+        }.resume()
+    }
+}
+
 /// OpenAI API client implementation
 public class OpenAIClient: AIClient {
     private let apiKey: String
     private let model: String
     private let maxTokens: Int
+    private let baseClient: BaseHTTPAIClient
     
     public init(apiKey: String, model: String = "gpt-4", maxTokens: Int = 1000) {
         self.apiKey = apiKey
         self.model = model
         self.maxTokens = maxTokens
+        self.baseClient = BaseHTTPAIClient()
     }
     
     public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
@@ -43,10 +115,10 @@ public class OpenAIClient: AIClient {
             return
         }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let headers = [
+            "Authorization": "Bearer \(apiKey)",
+            "Content-Type": "application/json"
+        ]
         
         let body: [String: Any] = [
             "model": model,
@@ -54,28 +126,14 @@ public class OpenAIClient: AIClient {
             "max_tokens": maxTokens
         ]
         
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
+        baseClient.sendRequest(url: url, headers: headers, body: body, responseParser: { json in
+            guard let choices = json["choices"] as? [[String: Any]],
+                  let message = choices.first?["message"] as? [String: Any],
+                  let content = message["content"] as? String else {
+                return nil
             }
-            
-            guard let data = data else {
-                completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
-                return
-            }
-            
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let choices = json["choices"] as? [[String: Any]],
-               let message = choices.first?["message"] as? [String: Any],
-               let content = message["content"] as? String {
-                completion(.success(content))
-            } else {
-                completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
-            }
-        }.resume()
+            return content
+        }, completion: completion)
     }
 }
 
@@ -84,11 +142,13 @@ public class AnthropicClient: AIClient {
     private let apiKey: String
     private let model: String
     private let maxTokens: Int
+    private let baseClient: BaseHTTPAIClient
     
     public init(apiKey: String, model: String = "claude-3-sonnet-20240229", maxTokens: Int = 1000) {
         self.apiKey = apiKey
         self.model = model
         self.maxTokens = maxTokens
+        self.baseClient = BaseHTTPAIClient()
     }
     
     public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
@@ -97,11 +157,11 @@ public class AnthropicClient: AIClient {
             return
         }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        let headers = [
+            "x-api-key": apiKey,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01"
+        ]
         
         let body: [String: Any] = [
             "model": model,
@@ -109,27 +169,13 @@ public class AnthropicClient: AIClient {
             "max_tokens": maxTokens
         ]
         
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
+        baseClient.sendRequest(url: url, headers: headers, body: body, responseParser: { json in
+            guard let content = json["content"] as? [[String: Any]],
+                  let text = content.first?["text"] as? String else {
+                return nil
             }
-            
-            guard let data = data else {
-                completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
-                return
-            }
-            
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let content = json["content"] as? [[String: Any]],
-               let text = content.first?["text"] as? String {
-                completion(.success(text))
-            } else {
-                completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])))
-            }
-        }.resume()
+            return text
+        }, completion: completion)
     }
 }
 
@@ -237,30 +283,54 @@ public class SynapseCore {
     /// Fault injection probability (0.0 by default). Can be set via env var CONTEXT_SYNAPSE_FAULT_PROB
     public var faultProbability: Double = 0.0
     
+    /// Simple logging helper for debugging and error tracking
+    private func logError(_ message: String, error: Error? = nil) {
+        let errorMsg = error.map { " - \($0.localizedDescription)" } ?? ""
+        print("ContextSynapse Error: \(message)\(errorMsg)", to: &standardError)
+    }
+    
     public init(folderName: String = "ContextSynapse", user: String = "default") {
+        // Validate and sanitize user input to prevent directory traversal
+        // Remove path separators and dots to prevent traversal attacks
+        let sanitizedUser = user
+            .components(separatedBy: CharacterSet(charactersIn: "/\\:."))
+            .joined()
+        
+        // Ensure the sanitized user is not empty and is alphanumeric with limited special chars
+        guard !sanitizedUser.isEmpty,
+              sanitizedUser.rangeOfCharacter(from: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))) != nil else {
+            fatalError("Invalid user identifier: must contain alphanumeric characters")
+        }
+        
         let home = fm.homeDirectoryForCurrentUser
         let baseDir = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
         self.appSupport = baseDir
         self.usersDir = baseDir.appendingPathComponent("users")
-        self.currentUser = user
+        self.currentUser = sanitizedUser
         
         // Create user-specific directories
-        let userDir = usersDir.appendingPathComponent(user)
+        let userDir = usersDir.appendingPathComponent(sanitizedUser)
         self.configURL = userDir.appendingPathComponent("config.json")
         self.regionsURL = userDir.appendingPathComponent("regions.json")
         self.logDir = userDir.appendingPathComponent("logs")
         
-        try? fm.createDirectory(at: appSupport, withIntermediateDirectories: true)
-        try? fm.createDirectory(at: usersDir, withIntermediateDirectories: true)
-        try? fm.createDirectory(at: userDir, withIntermediateDirectories: true)
-        try? fm.createDirectory(at: logDir, withIntermediateDirectories: true)
+        // Create directories with better error handling
+        do {
+            try fm.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            try fm.createDirectory(at: usersDir, withIntermediateDirectories: true)
+            try fm.createDirectory(at: userDir, withIntermediateDirectories: true)
+            try fm.createDirectory(at: logDir, withIntermediateDirectories: true)
+        } catch {
+            logError("Failed to create directories", error: error)
+        }
         
         // Create or update user profile
         updateUserProfile()
         
         // init faultProbability from environment (useful for testing)
-        if let env = ProcessInfo.processInfo.environment["CONTEXT_SYNAPSE_FAULT_PROB"], let v = Double(env) {
-            self.faultProbability = max(0.0, min(1.0, v))
+        if let env = ProcessInfo.processInfo.environment["CONTEXT_SYNAPSE_FAULT_PROB"], 
+           let v = Double(env), v >= 0.0, v <= 1.0 {
+            self.faultProbability = v
         }
         // seed defaults if missing
         _ = loadOrCreateDefaultWeights()
@@ -291,8 +361,11 @@ public class SynapseCore {
     }
     
     public func saveWeights(_ w: Weights) {
-        if let data = try? JSONEncoder().encode(w) {
-            try? data.write(to: configURL, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(w)
+            try data.write(to: configURL, options: .atomic)
+        } catch {
+            logError("Failed to save weights", error: error)
         }
     }
     
@@ -317,15 +390,16 @@ public class SynapseCore {
             Region(name: "EMEA", vector: vectorFor(baseScale: 0.9)),
             Region(name: "APAC", vector: vectorFor(baseScale: 1.05))
         ]
-        if let data = try? JSONEncoder().encode(regions) {
-            try? data.write(to: regionsURL, options: .atomic)
-        }
+        saveRegions(regions)
         return regions
     }
     
     public func saveRegions(_ regions: [Region]) {
-        if let d = try? JSONEncoder().encode(regions) {
-            try? d.write(to: regionsURL, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(regions)
+            try data.write(to: regionsURL, options: .atomic)
+        } catch {
+            logError("Failed to save regions", error: error)
         }
     }
     
@@ -361,24 +435,41 @@ public class SynapseCore {
         return minW + p * (maxW - minW)
     }
     
+    /// Helper function to recompute numeric weights from priors
+    private func updateWeightsFromPriors(_ weights: inout Weights) {
+        for (k, prior) in weights.priors.intents {
+            weights.intents[k] = mapPriorToWeight(prior)
+        }
+        for (k, prior) in weights.priors.tones {
+            weights.tones[k] = mapPriorToWeight(prior)
+        }
+        for (k, prior) in weights.priors.domains {
+            weights.domains[k] = mapPriorToWeight(prior)
+        }
+    }
+    
     /// call this to apply feedback and update priors/weights (Bayesian updates via Beta)
     public func applyFeedbackUpdate(chosenIntent: String, chosenTone: String, chosenDomain: String, positive: Bool) {
+        // Input validation
+        guard !chosenIntent.isEmpty, !chosenTone.isEmpty, !chosenDomain.isEmpty else {
+            return
+        }
+        
         var w = loadOrCreateDefaultWeights()
         func bump(dictKey: String, in map: inout [String:Prior]) {
-            if map[dictKey] == nil { map[dictKey] = Prior() }
+            var prior = map[dictKey] ?? Prior()
             if positive {
-                map[dictKey]!.alpha += 1.0
+                prior.alpha += 1.0
             } else {
-                map[dictKey]!.beta += 1.0
+                prior.beta += 1.0
             }
+            map[dictKey] = prior
         }
         bump(dictKey: chosenIntent, in: &w.priors.intents)
         bump(dictKey: chosenTone, in: &w.priors.tones)
         bump(dictKey: chosenDomain, in: &w.priors.domains)
-        // recompute numeric weights from priors (keeps alignement)
-        for (k, prior) in w.priors.intents { w.intents[k] = mapPriorToWeight(prior) }
-        for (k, prior) in w.priors.tones { w.tones[k] = mapPriorToWeight(prior) }
-        for (k, prior) in w.priors.domains { w.domains[k] = mapPriorToWeight(prior) }
+        // recompute numeric weights from priors (keeps alignment)
+        updateWeightsFromPriors(&w)
         saveWeights(w)
     }
     
@@ -496,8 +587,11 @@ public class SynapseCore {
     public func logRun(_ run: RunLog) {
         let iso = ISO8601DateFormatter().string(from: Date())
         let file = logDir.appendingPathComponent("run-\(iso).json")
-        if let d = try? JSONEncoder().encode(run) {
-            try? d.write(to: file, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(run)
+            try data.write(to: file, options: .atomic)
+        } catch {
+            logError("Failed to write run log", error: error)
         }
     }
     
@@ -548,50 +642,27 @@ public class SynapseCore {
             // Merge mode: combine priors and weights intelligently
             var currentWeights = loadOrCreateDefaultWeights()
             
+            // Helper function to merge prior dictionaries
+            func mergePriors(_ current: inout [String: Prior], with new: [String: Prior]) {
+                for (key, prior) in new {
+                    if let existing = current[key] {
+                        current[key] = Prior(
+                            alpha: (existing.alpha + prior.alpha) / 2.0,
+                            beta: (existing.beta + prior.beta) / 2.0
+                        )
+                    } else {
+                        current[key] = prior
+                    }
+                }
+            }
+            
             // Merge priors (average alpha/beta values)
-            for (key, prior) in bundle.weights.priors.intents {
-                if let existing = currentWeights.priors.intents[key] {
-                    currentWeights.priors.intents[key] = Prior(
-                        alpha: (existing.alpha + prior.alpha) / 2.0,
-                        beta: (existing.beta + prior.beta) / 2.0
-                    )
-                } else {
-                    currentWeights.priors.intents[key] = prior
-                }
-            }
-            
-            for (key, prior) in bundle.weights.priors.tones {
-                if let existing = currentWeights.priors.tones[key] {
-                    currentWeights.priors.tones[key] = Prior(
-                        alpha: (existing.alpha + prior.alpha) / 2.0,
-                        beta: (existing.beta + prior.beta) / 2.0
-                    )
-                } else {
-                    currentWeights.priors.tones[key] = prior
-                }
-            }
-            
-            for (key, prior) in bundle.weights.priors.domains {
-                if let existing = currentWeights.priors.domains[key] {
-                    currentWeights.priors.domains[key] = Prior(
-                        alpha: (existing.alpha + prior.alpha) / 2.0,
-                        beta: (existing.beta + prior.beta) / 2.0
-                    )
-                } else {
-                    currentWeights.priors.domains[key] = prior
-                }
-            }
+            mergePriors(&currentWeights.priors.intents, with: bundle.weights.priors.intents)
+            mergePriors(&currentWeights.priors.tones, with: bundle.weights.priors.tones)
+            mergePriors(&currentWeights.priors.domains, with: bundle.weights.priors.domains)
             
             // Recompute weights from merged priors
-            for (k, prior) in currentWeights.priors.intents {
-                currentWeights.intents[k] = mapPriorToWeight(prior)
-            }
-            for (k, prior) in currentWeights.priors.tones {
-                currentWeights.tones[k] = mapPriorToWeight(prior)
-            }
-            for (k, prior) in currentWeights.priors.domains {
-                currentWeights.domains[k] = mapPriorToWeight(prior)
-            }
+            updateWeightsFromPriors(&currentWeights)
             
             saveWeights(currentWeights)
             

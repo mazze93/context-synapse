@@ -148,6 +148,27 @@ I encourage security research that helps improve the safety and security of thes
 - Run security scanners locally before submitting pull requests
 - Sign commits with GPG or SSH keys when possible
 
+### Security Improvements (v1.1)
+
+As of the v1.1 release, ContextSynapse includes the following security enhancements:
+
+#### Input Validation
+- **User ID Sanitization**: All user identifiers are sanitized to prevent directory traversal attacks (e.g., `../` or absolute paths)
+- **Feedback Parameter Validation**: Empty strings are rejected in feedback operations
+
+#### Network Security
+- **HTTP Status Validation**: API clients validate HTTP 200 status codes before processing responses
+- **Timeout Configuration**: 30-second timeout prevents hung connections
+- **No Response Caching**: URLSession configured to disable caching of API responses
+
+#### Error Handling
+- **Explicit Error Logging**: Replaced silent `try?` failures with proper error handling and logging to stderr
+- **File Operation Safety**: All file I/O operations use atomic writes and proper error reporting
+
+#### Code Quality
+- **No Force Unwrapping**: Eliminated unsafe force unwrapping in critical paths (e.g., Bayesian feedback updates)
+- **Memory Management**: Replaced shared URLSession with configured instances to prevent memory leaks
+
 ### Reporting Security Issues in Dependencies
 
 If you discover a vulnerability in a third-party dependency:
@@ -165,6 +186,6 @@ Version history is maintained in the repository commit history.
 
 **Document Information**
 
-- **Last Updated**: February 1, 2026
+- **Last Updated**: February 9, 2026
 - **Effective Date**: February 1, 2026
 - **Next Review**: May 1, 2026

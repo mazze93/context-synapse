@@ -138,10 +138,21 @@ var activeTriggers = [String]()
 if let app = flagApp { activeTriggers.append("app.\(app)") }
 if let focus = flagFocus { activeTriggers.append("focus.\(focus)") }
 if let t = flagTime {
-    if let hh = Int(t.split(separator: ":").first ?? "") {
+    let components = t.split(separator: ":")
+    if let hhStr = components.first, let hh = Int(hhStr), hh >= 0, hh < 24 {
         if hh >= 5 && hh < 12 {
             activeTriggers.append("time.morning")
         } else if hh >= 12 && hh < 17 {
+            activeTriggers.append("time.afternoon")
+        } else {
+            activeTriggers.append("time.evening")
+        }
+    } else {
+        fputs("Warning: Invalid time format '\(t)', using current time instead\n", stderr)
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 5 && hour < 12 {
+            activeTriggers.append("time.morning")
+        } else if hour >= 12 && hour < 17 {
             activeTriggers.append("time.afternoon")
         } else {
             activeTriggers.append("time.evening")
