@@ -291,9 +291,15 @@ public class SynapseCore {
     
     public init(folderName: String = "ContextSynapse", user: String = "default") {
         // Validate and sanitize user input to prevent directory traversal
-        let sanitizedUser = user.components(separatedBy: CharacterSet(charactersIn: "/\\:")).joined()
-        guard !sanitizedUser.isEmpty else {
-            fatalError("Invalid user identifier")
+        // Remove path separators and dots to prevent traversal attacks
+        let sanitizedUser = user
+            .components(separatedBy: CharacterSet(charactersIn: "/\\:."))
+            .joined()
+        
+        // Ensure the sanitized user is not empty and is alphanumeric with limited special chars
+        guard !sanitizedUser.isEmpty,
+              sanitizedUser.rangeOfCharacter(from: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))) != nil else {
+            fatalError("Invalid user identifier: must contain alphanumeric characters")
         }
         
         let home = fm.homeDirectoryForCurrentUser
