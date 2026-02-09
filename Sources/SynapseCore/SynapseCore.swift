@@ -384,15 +384,16 @@ public class SynapseCore {
             Region(name: "EMEA", vector: vectorFor(baseScale: 0.9)),
             Region(name: "APAC", vector: vectorFor(baseScale: 1.05))
         ]
-        if let data = try? JSONEncoder().encode(regions) {
-            try? data.write(to: regionsURL, options: .atomic)
-        }
+        saveRegions(regions)
         return regions
     }
     
     public func saveRegions(_ regions: [Region]) {
-        if let d = try? JSONEncoder().encode(regions) {
-            try? d.write(to: regionsURL, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(regions)
+            try data.write(to: regionsURL, options: .atomic)
+        } catch {
+            logError("Failed to save regions", error: error)
         }
     }
     
@@ -428,6 +429,19 @@ public class SynapseCore {
         return minW + p * (maxW - minW)
     }
     
+    /// Helper function to recompute numeric weights from priors
+    private func updateWeightsFromPriors(_ weights: inout Weights) {
+        for (k, prior) in weights.priors.intents {
+            weights.intents[k] = mapPriorToWeight(prior)
+        }
+        for (k, prior) in weights.priors.tones {
+            weights.tones[k] = mapPriorToWeight(prior)
+        }
+        for (k, prior) in weights.priors.domains {
+            weights.domains[k] = mapPriorToWeight(prior)
+        }
+    }
+    
     /// call this to apply feedback and update priors/weights (Bayesian updates via Beta)
     public func applyFeedbackUpdate(chosenIntent: String, chosenTone: String, chosenDomain: String, positive: Bool) {
         // Input validation
@@ -449,9 +463,7 @@ public class SynapseCore {
         bump(dictKey: chosenTone, in: &w.priors.tones)
         bump(dictKey: chosenDomain, in: &w.priors.domains)
         // recompute numeric weights from priors (keeps alignment)
-        for (k, prior) in w.priors.intents { w.intents[k] = mapPriorToWeight(prior) }
-        for (k, prior) in w.priors.tones { w.tones[k] = mapPriorToWeight(prior) }
-        for (k, prior) in w.priors.domains { w.domains[k] = mapPriorToWeight(prior) }
+        updateWeightsFromPriors(&w)
         saveWeights(w)
     }
     
@@ -624,50 +636,27 @@ public class SynapseCore {
             // Merge mode: combine priors and weights intelligently
             var currentWeights = loadOrCreateDefaultWeights()
             
+            // Helper function to merge prior dictionaries
+            func mergePriors(_ current: inout [String: Prior], with new: [String: Prior]) {
+                for (key, prior) in new {
+                    if let existing = current[key] {
+                        current[key] = Prior(
+                            alpha: (existing.alpha + prior.alpha) / 2.0,
+                            beta: (existing.beta + prior.beta) / 2.0
+                        )
+                    } else {
+                        current[key] = prior
+                    }
+                }
+            }
+            
             // Merge priors (average alpha/beta values)
-            for (key, prior) in bundle.weights.priors.intents {
-                if let existing = currentWeights.priors.intents[key] {
-                    currentWeights.priors.intents[key] = Prior(
-                        alpha: (existing.alpha + prior.alpha) / 2.0,
-                        beta: (existing.beta + prior.beta) / 2.0
-                    )
-                } else {
-                    currentWeights.priors.intents[key] = prior
-                }
-            }
-            
-            for (key, prior) in bundle.weights.priors.tones {
-                if let existing = currentWeights.priors.tones[key] {
-                    currentWeights.priors.tones[key] = Prior(
-                        alpha: (existing.alpha + prior.alpha) / 2.0,
-                        beta: (existing.beta + prior.beta) / 2.0
-                    )
-                } else {
-                    currentWeights.priors.tones[key] = prior
-                }
-            }
-            
-            for (key, prior) in bundle.weights.priors.domains {
-                if let existing = currentWeights.priors.domains[key] {
-                    currentWeights.priors.domains[key] = Prior(
-                        alpha: (existing.alpha + prior.alpha) / 2.0,
-                        beta: (existing.beta + prior.beta) / 2.0
-                    )
-                } else {
-                    currentWeights.priors.domains[key] = prior
-                }
-            }
+            mergePriors(&currentWeights.priors.intents, with: bundle.weights.priors.intents)
+            mergePriors(&currentWeights.priors.tones, with: bundle.weights.priors.tones)
+            mergePriors(&currentWeights.priors.domains, with: bundle.weights.priors.domains)
             
             // Recompute weights from merged priors
-            for (k, prior) in currentWeights.priors.intents {
-                currentWeights.intents[k] = mapPriorToWeight(prior)
-            }
-            for (k, prior) in currentWeights.priors.tones {
-                currentWeights.tones[k] = mapPriorToWeight(prior)
-            }
-            for (k, prior) in currentWeights.priors.domains {
-                currentWeights.domains[k] = mapPriorToWeight(prior)
-            }
+            updateWeightsFromPriors(&currentWeights)
             
             saveWeights(currentWeights)
             
