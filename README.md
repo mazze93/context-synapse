@@ -329,7 +329,7 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## Author
 
-Created by mazze93 as part of a collection of tools designed to support neurodivergent developers and improve AI interaction workflows.
+Created by Mazze LeCzzare Frazer (mazze93) as part of a collection of tools designed to support neurodivergent developers and improve AI interaction workflows.
 
 ## Roadmap
 
