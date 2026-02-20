@@ -4,15 +4,15 @@ import FoundationNetworking
 #endif
 
 // MARK: - Utility: stderr helper
-private var standardError = FileHandle.standardError
-
-extension FileHandle: TextOutputStream {
-    public func write(_ string: String) {
+private struct StandardErrorStream: TextOutputStream {
+    mutating func write(_ string: String) {
         if let data = string.data(using: .utf8) {
-            try? write(contentsOf: data)
+            try? FileHandle.standardError.write(contentsOf: data)
         }
     }
 }
+
+private var standardError = StandardErrorStream()
 
 // MARK: - AI Platform Integration
 
