@@ -1,45 +1,52 @@
-//
-// WeightGridView.swift
-// Context Synapse
-//
-
 import SwiftUI
+import SynapseCore
 
 struct WeightGridView: View {
-    let weights: [[Double]]
-    let labels: [String]
-    
+    @Binding var weights: Weights
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Bayesian Prior Weights")
-                .font(.headline)
-            
-            ScrollView([.horizontal, .vertical]) {
-                VStack(spacing: 4) {
-                    ForEach(0..<weights.count, id: \.self) { row in
-                        HStack(spacing: 4) {
-                            Text(labels[row])
-                                .frame(width: 100, alignment: .leading)
-                                .font(.caption)
-                            
-                            ForEach(0..<weights[row].count, id: \.self) { col in
-                                Text(String(format: "%.2f", weights[row][col]))
-                                    .frame(width: 60)
-                                    .padding(4)
-                                    .background(colorForWeight(weights[row][col]))
-                                    .cornerRadius(4)
-                                    .font(.caption)
-                            }
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Intents").font(.subheadline).bold()
+                    ForEach(weights.intents.keys.sorted(), id: \.self) { key in
+                        HStack {
+                            Text(key).frame(width: 120, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { weights.intents[key] ?? 1.0 },
+                                set: { weights.intents[key] = $0 }
+                            ), in: 0.1...3.0)
+                            Text(String(format: "%.2f", weights.intents[key] ?? 1.0)).frame(width: 50)
                         }
                     }
                 }
-                .padding()
+                VStack(alignment: .leading) {
+                    Text("Tones").font(.subheadline).bold()
+                    ForEach(weights.tones.keys.sorted(), id: \.self) { key in
+                        HStack {
+                            Text(key).frame(width: 120, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { weights.tones[key] ?? 1.0 },
+                                set: { weights.tones[key] = $0 }
+                            ), in: 0.1...3.0)
+                            Text(String(format: "%.2f", weights.tones[key] ?? 1.0)).frame(width: 50)
+                        }
+                    }
+                }
+                VStack(alignment: .leading) {
+                    Text("Domains").font(.subheadline).bold()
+                    ForEach(weights.domains.keys.sorted(), id: \.self) { key in
+                        HStack {
+                            Text(key).frame(width: 120, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { weights.domains[key] ?? 1.0 },
+                                set: { weights.domains[key] = $0 }
+                            ), in: 0.1...3.0)
+                            Text(String(format: "%.2f", weights.domains[key] ?? 1.0)).frame(width: 50)
+                        }
+                    }
+                }
             }
         }
-    }
-    
-    private func colorForWeight(_ weight: Double) -> Color {
-        let normalized = min(max(weight, 0.0), 1.0)
-        return Color(red: normalized, green: 0.5, blue: 1.0 - normalized)
     }
 }

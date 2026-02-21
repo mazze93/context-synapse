@@ -2,6 +2,49 @@ import XCTest
 @testable import SynapseCore
 
 final class BayesianConvergenceTests: XCTestCase {
+    private static var cliExecutableURL: URL?
+
+    private func repositoryRootURL() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    @discardableResult
+    private func runProcess(executable: String, arguments: [String], in directory: URL) throws -> (status: Int32, stdout: String, stderr: String) {
+        let process = Process()
+        process.currentDirectoryURL = directory
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
+        let stderr = String(data: stderrData, encoding: .utf8) ?? ""
+        return (process.terminationStatus, stdout, stderr)
+    }
+
+    private func ensureCLIExecutable() throws -> URL {
+        if let cached = Self.cliExecutableURL, FileManager.default.fileExists(atPath: cached.path) {
+            return cached
+        }
+
+        let repoRoot = repositoryRootURL()
+        let execURL = repoRoot.appendingPathComponent(".build/debug/contextsynapse")
+        if !FileManager.default.fileExists(atPath: execURL.path) {
+            throw XCTSkip("CLI executable not found at \(execURL.path). Run swift build before swift test.")
+        }
+        Self.cliExecutableURL = execURL
+        return execURL
+    }
     
     func testPriorProbabilityIncreasesWithPositiveFeedback() throws {
         let core = SynapseCore(folderName: "ContextSynapseTests_ProbUp_\(UUID().uuidString)")
@@ -138,6 +181,56 @@ final class BayesianConvergenceTests: XCTestCase {
         XCTAssertGreaterThan(alpha2, alpha1)
         
         // Cleanup
+        try? FileManager.default.removeItem(at: exportFile)
+    }
+
+    func testAssemblePromptUsesCanonicalFormat() throws {
+        let core = SynapseCore(folderName: "ContextSynapseTests_Assemble_\(UUID().uuidString)")
+        let prompt = core.assemblePrompt(tone: "Concise", intent: "Analyze", domain: "Work", query: "Check this crash")
+        XCTAssertEqual(prompt, "[Concise] [Analyze] [Work]: Check this crash")
+    }
+
+    func testResetToFactoryDefaultsOverwritesPersistedState() throws {
+        let core = SynapseCore(folderName: "ContextSynapseTests_Reset_\(UUID().uuidString)")
+
+        var mutatedWeights = core.loadOrCreateDefaultWeights()
+        mutatedWeights.intents["Create"] = 2.75
+        core.saveWeights(mutatedWeights)
+        core.saveRegions([Region(name: "CustomRegion", vector: [9.0, 1.0, 2.0])])
+
+        let reset = core.resetToFactoryDefaults()
+        XCTAssertEqual(reset.weights.intents["Create"], 1.0)
+        XCTAssertEqual(reset.regions.map { $0.name }, ["NorthAmerica", "EMEA", "APAC"])
+
+        let reloadedWeights = core.loadOrCreateDefaultWeights()
+        let reloadedRegions = core.loadOrSeedRegions()
+        XCTAssertEqual(reloadedWeights.intents["Create"], 1.0)
+        XCTAssertEqual(reloadedRegions.map { $0.name }, ["NorthAmerica", "EMEA", "APAC"])
+    }
+
+    func testExportAndImportAcceptUserFlagBeforeCommandFlag() throws {
+        let executable = try ensureCLIExecutable()
+        let tempDir = FileManager.default.temporaryDirectory
+        let exportFile = tempDir.appendingPathComponent("test_cli_order_\(UUID().uuidString).json")
+        let user = "cli_order_user"
+
+        let exportResult = try runProcess(
+            executable: executable.path,
+            arguments: ["--user", user, "--export", exportFile.path, "--metadata", "suite=cli_flag_order"],
+            in: repositoryRootURL()
+        )
+        XCTAssertEqual(exportResult.status, 0, "Export command failed.\nstdout:\n\(exportResult.stdout)\nstderr:\n\(exportResult.stderr)")
+        XCTAssertTrue(exportResult.stdout.contains("Successfully exported state"), "Unexpected export output: \(exportResult.stdout)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: exportFile.path), "Export file was not created")
+
+        let importResult = try runProcess(
+            executable: executable.path,
+            arguments: ["--user", user, "--import", exportFile.path, "--merge"],
+            in: repositoryRootURL()
+        )
+        XCTAssertEqual(importResult.status, 0, "Import command failed.\nstdout:\n\(importResult.stdout)\nstderr:\n\(importResult.stderr)")
+        XCTAssertTrue(importResult.stdout.contains("Successfully imported state"), "Unexpected import output: \(importResult.stdout)")
+
         try? FileManager.default.removeItem(at: exportFile)
     }
 }

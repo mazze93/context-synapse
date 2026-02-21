@@ -96,13 +96,13 @@ This document summarizes the patches, refinements, and optimizations implemented
 
 ## Build and Platform Support
 
-### Linux Compatibility
-- **Issue**: SwiftUI not available on Linux
-- **Solution**: Removed `ContextSynapseApp` target from `Package.swift`
-- **Result**: 
-  - CLI builds successfully on Linux
-  - All tests pass on Linux
-  - macOS app can still be built via Xcode
+### macOS Package Consistency
+- **Issue**: Package target definitions drifted from documented CLI + app architecture.
+- **Solution**: Keep both `contextsynapse` (CLI) and `ContextSynapseApp` (SwiftUI app) in `Package.swift`.
+- **Result**:
+  - `swift build` produces both executables on macOS
+  - The app target compiles in the same package build graph as the core and CLI
+  - Documentation and package structure are aligned
 - Location: `Package.swift:1-16`
 
 ### Test Coverage
@@ -194,6 +194,6 @@ ContextSynapse v1.1 represents a significant step forward in:
 - **Security**: Multiple vulnerabilities fixed, comprehensive input validation
 - **Maintainability**: 50%+ code reduction in key areas
 - **Robustness**: Proper error handling throughout
-- **Portability**: Linux compatibility achieved
+- **Packaging consistency**: CLI and app targets build together on macOS
 
 The system is now leaner (less code), meaner (more secure), and more sustainable (easier to maintain).

@@ -4,7 +4,7 @@ import SynapseCore
 @main
 struct ContextSynapseAppMain: App {
     @StateObject private var vm = AppViewModel()
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -20,7 +20,9 @@ struct ContextSynapseAppMain: App {
 // Simple app view model bridging core to UI
 final class AppViewModel: ObservableObject {
     private let core = SynapseCore()
-    
+    private let defaultFaultProbability = 0.15
+    private var lastNonZeroFaultProbability: Double = 0.15
+
     @Published var weights: Weights
     @Published var regions: [Region]
     @Published var similarityMatrix: [[Double]] = []
@@ -29,69 +31,83 @@ final class AppViewModel: ObservableObject {
     @Published var queryText: String = ""
     @Published var faultEnabled: Bool = false
     @Published var faultProbability: Double = 0.0
-    
+
     init() {
         self.weights = core.loadOrCreateDefaultWeights()
         self.regions = core.loadOrSeedRegions()
         self.faultProbability = core.faultProbability
+        self.faultEnabled = core.faultProbability > 0.0
+        if core.faultProbability > 0.0 {
+            self.lastNonZeroFaultProbability = core.faultProbability
+        }
         recomputeSimilarities()
     }
-    
+
     func recomputeSimilarities() {
-        let (matrix, nearest) = core.computeRegionSimilarities(regions)
+        let (matrix, nearest) = core.computeRegionSimilarities(regionsIn: regions)
         DispatchQueue.main.async {
             self.similarityMatrix = matrix
             self.nearestMap = nearest
         }
     }
-    
+
     func assemblePrompt() {
-        // pick currently highest scoring keys for display
         let intent = core.weightedPick(weights.intents) ?? weights.intents.keys.sorted().first ?? "Create"
         let tone = core.weightedPick(weights.tones) ?? weights.tones.keys.sorted().first ?? "Concise"
         let domain = core.weightedPick(weights.domains) ?? weights.domains.keys.sorted().first ?? "Work"
-        let p = "[\(tone)] [\(intent)] [\(domain)]: \(queryText)"
-        assembledPrompt = p
-        
-        // log a run
+        let prompt = core.assemblePrompt(tone: tone, intent: intent, domain: domain, query: queryText)
+        assembledPrompt = prompt
+
         let run = SynapseCore.RunLog(
             timestamp: ISO8601DateFormatter().string(from: Date()),
             input: queryText,
             chosenIntent: intent,
             chosenTone: tone,
             chosenDomain: domain,
-            assembledPrompt: p,
-            context: ["ui":"macapp"]
+            assembledPrompt: prompt,
+            context: ["ui": "macapp"]
         )
         core.logRun(run)
     }
-    
+
     func saveConfig() {
         core.saveWeights(weights)
         core.saveRegions(regions)
     }
-    
+
     func resetDefaults() {
-        self.weights = core.loadOrCreateDefaultWeights()
-        self.regions = core.loadOrSeedRegions()
+        let reset = core.resetToFactoryDefaults()
+        self.weights = reset.weights
+        self.regions = reset.regions
         recomputeSimilarities()
     }
-    
-    // toggle fault injection and set core probability
-    func setFaultProbability(_ p: Double) {
-        self.faultProbability = max(0.0, min(1.0, p))
-        core.faultProbability = self.faultProbability
+
+    func setFaultEnabled(_ enabled: Bool) {
+        faultEnabled = enabled
+        if enabled {
+            let restored = lastNonZeroFaultProbability > 0.0 ? lastNonZeroFaultProbability : defaultFaultProbability
+            setFaultProbability(restored)
+        } else {
+            setFaultProbability(0.0)
+        }
     }
-    
-    // intentionally disintegrate regions for resilience testing
+
+    func setFaultProbability(_ p: Double) {
+        faultProbability = max(0.0, min(1.0, p))
+        if faultProbability > 0.0 {
+            lastNonZeroFaultProbability = faultProbability
+        }
+        faultEnabled = faultProbability > 0.0
+        core.faultProbability = faultProbability
+    }
+
     func disintegrateSkyPlates() {
         var regs = regions
         core.maybeInjectFaults(into: &regs)
         self.regions = regs
         recomputeSimilarities()
     }
-    
-    // apply manual feedback (UI)
+
     func applyFeedback(chosenIntent: String, chosenTone: String, chosenDomain: String, positive: Bool) {
         core.applyFeedbackUpdate(chosenIntent: chosenIntent, chosenTone: chosenTone, chosenDomain: chosenDomain, positive: positive)
         self.weights = core.loadOrCreateDefaultWeights()

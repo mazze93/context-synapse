@@ -1,65 +1,75 @@
 import Foundation
 import SynapseCore
 
-let core = SynapseCore()
 let args = CommandLine.arguments
 
-// Check for special commands first (export/import)
-if args.count >= 2 {
-    if args[1] == "--export" {
-        if args.count < 3 {
-            fputs("Usage: contextsynapse --export <output-file.json> [--metadata key=value ...]\n", stderr)
-            exit(1)
-        }
-        let outputFile = args[2]
-        var metadata: [String: String] = [:]
-        
-        // Parse metadata
-        var i = 3
-        while i < args.count {
-            if args[i] == "--metadata" && i + 1 < args.count {
-                let parts = args[i + 1].split(separator: "=", maxSplits: 1)
-                if parts.count == 2 {
-                    metadata[String(parts[0])] = String(parts[1])
-                }
-                i += 2
-            } else {
-                i += 1
+// Global flag scan (needed before core initialization)
+var selectedUser = "default"
+var scanIndex = 1
+while scanIndex < args.count {
+    if args[scanIndex] == "--user", scanIndex + 1 < args.count {
+        selectedUser = args[scanIndex + 1]
+        break
+    }
+    scanIndex += 1
+}
+
+let core = SynapseCore(user: selectedUser)
+
+// Check for special commands first (export/import), regardless of flag order.
+let exportIndex = args.firstIndex(of: "--export")
+let importIndex = args.firstIndex(of: "--import")
+if exportIndex != nil && importIndex != nil {
+    fputs("Error: --export and --import cannot be used together\n", stderr)
+    exit(1)
+}
+
+if let exportIndex {
+    guard exportIndex + 1 < args.count else {
+        fputs("Usage: contextsynapse --export <output-file.json> [--metadata key=value ...] [--user <id>]\n", stderr)
+        exit(1)
+    }
+    let outputFile = args[exportIndex + 1]
+    var metadata: [String: String] = [:]
+
+    var i = 1
+    while i < args.count {
+        if args[i] == "--metadata", i + 1 < args.count {
+            let parts = args[i + 1].split(separator: "=", maxSplits: 1)
+            if parts.count == 2 {
+                metadata[String(parts[0])] = String(parts[1])
             }
-        }
-        
-        let url = URL(fileURLWithPath: outputFile)
-        if core.exportState(to: url, metadata: metadata) {
-            print("Successfully exported state to: \(outputFile)")
-            exit(0)
+            i += 2
         } else {
-            fputs("Error: Failed to export state\n", stderr)
-            exit(1)
+            i += 1
         }
     }
-    
-    if args[1] == "--import" {
-        if args.count < 3 {
-            fputs("Usage: contextsynapse --import <input-file.json> [--merge]\n", stderr)
-            exit(1)
-        }
-        let inputFile = args[2]
-        let merge = args.contains("--merge")
-        
-        let url = URL(fileURLWithPath: inputFile)
-        if core.importState(from: url, merge: merge) {
-            print("Successfully imported state from: \(inputFile)")
-            if merge {
-                print("Mode: Merged with existing data")
-            } else {
-                print("Mode: Replaced existing data")
-            }
-            exit(0)
-        } else {
-            fputs("Error: Failed to import state\n", stderr)
-            exit(1)
-        }
+
+    let url = URL(fileURLWithPath: outputFile)
+    if core.exportState(to: url, metadata: metadata) {
+        print("Successfully exported state to: \(outputFile)")
+        exit(0)
     }
+    fputs("Error: Failed to export state\n", stderr)
+    exit(1)
+}
+
+if let importIndex {
+    guard importIndex + 1 < args.count else {
+        fputs("Usage: contextsynapse --import <input-file.json> [--merge] [--user <id>]\n", stderr)
+        exit(1)
+    }
+    let inputFile = args[importIndex + 1]
+    let merge = args.contains("--merge")
+
+    let url = URL(fileURLWithPath: inputFile)
+    if core.importState(from: url, merge: merge) {
+        print("Successfully imported state from: \(inputFile)")
+        print(merge ? "Mode: Merged with existing data" : "Mode: Replaced existing data")
+        exit(0)
+    }
+    fputs("Error: Failed to import state\n", stderr)
+    exit(1)
 }
 
 // Regular query processing
@@ -79,29 +89,23 @@ while i < args.count {
     let a = args[i]
     switch a {
     case "--app":
-        i += 1
-        if i < args.count { flagApp = args[i] }
+        i += 1; if i < args.count { flagApp = args[i] }
     case "--focus":
-        i += 1
-        if i < args.count { flagFocus = args[i] }
+        i += 1; if i < args.count { flagFocus = args[i] }
     case "--intent":
-        i += 1
-        if i < args.count { flagIntent = args[i] }
+        i += 1; if i < args.count { flagIntent = args[i] }
     case "--tone":
-        i += 1
-        if i < args.count { flagTone = args[i] }
+        i += 1; if i < args.count { flagTone = args[i] }
     case "--domain":
-        i += 1
-        if i < args.count { flagDomain = args[i] }
+        i += 1; if i < args.count { flagDomain = args[i] }
     case "--time":
-        i += 1
-        if i < args.count { flagTime = args[i] }
+        i += 1; if i < args.count { flagTime = args[i] }
     case "--feedback":
-        i += 1
-        if i < args.count { feedbackFlag = args[i] }
+        i += 1; if i < args.count { feedbackFlag = args[i] }
     case "--fault-prob":
-        i += 1
-        if i < args.count { faultProbFlag = args[i] }
+        i += 1; if i < args.count { faultProbFlag = args[i] }
+    case "--user":
+        i += 1 // already consumed for core init
     default:
         if providedQuery == nil {
             providedQuery = a
@@ -112,28 +116,26 @@ while i < args.count {
     i += 1
 }
 
-// stdin fallback
 if providedQuery == nil {
     let stdinData = FileHandle.standardInput.availableData
-    if !stdinData.isEmpty, let s = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
+    if !stdinData.isEmpty,
+       let s = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !s.isEmpty {
         providedQuery = s
     }
 }
 
-
 guard let userQuery = providedQuery?.trimmingCharacters(in: .whitespacesAndNewlines), !userQuery.isEmpty else {
-    fputs("Usage: contextsynapse <your query> [--app Mail] [--focus Home] [--intent Brainstorm] [--tone Casual] [--domain Work] [--time HH:MM] [--feedback good|bad] [--fault-prob 0.0-1.0]\n", stderr)
-    fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...]\n", stderr)
-    fputs("       contextsynapse --import <input-file.json> [--merge]\n", stderr)
+    fputs("Usage: contextsynapse <your query> [--user <id>] [--app Mail] [--focus Home] [--intent Brainstorm] [--tone Casual] [--domain Work] [--time HH:MM] [--feedback good|bad] [--fault-prob 0.0-1.0]\n", stderr)
+    fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...] [--user <id>]\n", stderr)
+    fputs("       contextsynapse --import <input-file.json> [--merge] [--user <id>]\n", stderr)
     exit(1)
 }
 
-// set fault probability for this run if requested
 if let fp = faultProbFlag, let v = Double(fp) {
     core.faultProbability = max(0.0, min(1.0, v))
 }
 
-// triggers
 var activeTriggers = [String]()
 if let app = flagApp { activeTriggers.append("app.\(app)") }
 if let focus = flagFocus { activeTriggers.append("focus.\(focus)") }
@@ -177,10 +179,9 @@ let chosenIntent = flagIntent ?? core.weightedPick(intentScores) ?? "Create"
 let chosenTone = flagTone ?? core.weightedPick(toneScores) ?? "Concise"
 let chosenDomain = flagDomain ?? core.weightedPick(domainScores) ?? "Work"
 
-let finalPrompt = "[\(chosenTone)] [\(chosenIntent)] [\(chosenDomain)]: \(userQuery)"
+let finalPrompt = core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)
 print(finalPrompt)
 
-// log
 let run = SynapseCore.RunLog(
     timestamp: ISO8601DateFormatter().string(from: Date()),
     input: userQuery,
@@ -188,11 +189,15 @@ let run = SynapseCore.RunLog(
     chosenTone: chosenTone,
     chosenDomain: chosenDomain,
     assembledPrompt: finalPrompt,
-    context: ["app": flagApp ?? "unknown", "focus": flagFocus ?? "unknown", "timeBucket": activeTriggers.joined(separator: ",")]
+    context: [
+        "user": selectedUser,
+        "app": flagApp ?? "unknown",
+        "focus": flagFocus ?? "unknown",
+        "timeBucket": activeTriggers.joined(separator: ",")
+    ]
 )
 core.logRun(run)
 
-// feedback - apply Bayesian update and persist weights
 if let fb = feedbackFlag?.lowercased() {
     if fb == "good" || fb == "yes" {
         core.applyFeedbackUpdate(chosenIntent: chosenIntent, chosenTone: chosenTone, chosenDomain: chosenDomain, positive: true)

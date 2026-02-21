@@ -338,10 +338,7 @@ public class SynapseCore {
     }
     
     // MARK: - Config I/O
-    public func loadOrCreateDefaultWeights() -> Weights {
-        if let data = try? Data(contentsOf: configURL), let w = try? JSONDecoder().decode(Weights.self, from: data) {
-            return w
-        }
+    public func defaultWeights() -> Weights {
         let intents = ["Summarize":1.0,"Create":1.0,"Analyze":1.0,"Brainstorm":1.0,"ActionableSteps":1.0]
         let tones = ["Concise":1.0,"Technical":1.0,"Casual":1.0,"Persuasive":1.0,"Creative":1.0]
         let domains = ["Work":1.0,"Personal":1.0,"GameDesign":1.0,"Marketing":1.0,"Writing":1.0]
@@ -355,7 +352,32 @@ public class SynapseCore {
         priors.intents = Dictionary(uniqueKeysWithValues: intents.keys.map { ($0, Prior()) })
         priors.tones = Dictionary(uniqueKeysWithValues: tones.keys.map { ($0, Prior()) })
         priors.domains = Dictionary(uniqueKeysWithValues: domains.keys.map { ($0, Prior()) })
-        let defaults = Weights(intents: intents, tones: tones, domains: domains, triggers: triggers, priors: priors)
+        return Weights(intents: intents, tones: tones, domains: domains, triggers: triggers, priors: priors)
+    }
+
+    public func defaultRegions(for weights: Weights) -> [Region] {
+        let intentKeys = weights.intents.keys.sorted()
+        let toneKeys = weights.tones.keys.sorted()
+        let domainKeys = weights.domains.keys.sorted()
+        func vectorFor(baseScale: Double) -> [Double] {
+            var v = [Double]()
+            v += intentKeys.map { _ in baseScale }
+            v += toneKeys.map { _ in baseScale * 0.9 }
+            v += domainKeys.map { _ in baseScale * 1.1 }
+            return v
+        }
+        return [
+            Region(name: "NorthAmerica", vector: vectorFor(baseScale: 1.0)),
+            Region(name: "EMEA", vector: vectorFor(baseScale: 0.9)),
+            Region(name: "APAC", vector: vectorFor(baseScale: 1.05))
+        ]
+    }
+
+    public func loadOrCreateDefaultWeights() -> Weights {
+        if let data = try? Data(contentsOf: configURL), let w = try? JSONDecoder().decode(Weights.self, from: data) {
+            return w
+        }
+        let defaults = defaultWeights()
         saveWeights(defaults)
         return defaults
     }
@@ -375,21 +397,7 @@ public class SynapseCore {
             return arr
         }
         let defaults = loadOrCreateDefaultWeights()
-        let intentKeys = defaults.intents.keys.sorted()
-        let toneKeys = defaults.tones.keys.sorted()
-        let domainKeys = defaults.domains.keys.sorted()
-        func vectorFor(baseScale: Double) -> [Double] {
-            var v = [Double]()
-            v += intentKeys.map { _ in baseScale }
-            v += toneKeys.map { _ in baseScale * 0.9 }
-            v += domainKeys.map { _ in baseScale * 1.1 }
-            return v
-        }
-        let regions = [
-            Region(name: "NorthAmerica", vector: vectorFor(baseScale: 1.0)),
-            Region(name: "EMEA", vector: vectorFor(baseScale: 0.9)),
-            Region(name: "APAC", vector: vectorFor(baseScale: 1.05))
-        ]
+        let regions = defaultRegions(for: defaults)
         saveRegions(regions)
         return regions
     }
@@ -401,6 +409,14 @@ public class SynapseCore {
         } catch {
             logError("Failed to save regions", error: error)
         }
+    }
+
+    public func resetToFactoryDefaults() -> (weights: Weights, regions: [Region]) {
+        let defaults = defaultWeights()
+        let regions = defaultRegions(for: defaults)
+        saveWeights(defaults)
+        saveRegions(regions)
+        return (defaults, regions)
     }
     
     // MARK: - Trigger application and picking
@@ -427,6 +443,10 @@ public class SynapseCore {
             if r < cumulative { return k }
         }
         return entries.first?.key
+    }
+
+    public func assemblePrompt(tone: String, intent: String, domain: String, query: String) -> String {
+        "[\(tone)] [\(intent)] [\(domain)]: \(query)"
     }
     
     /// map a Beta prior to a weight range

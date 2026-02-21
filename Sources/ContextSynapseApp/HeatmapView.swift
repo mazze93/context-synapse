@@ -1,70 +1,83 @@
-//
-// HeatmapView.swift
-// Context Synapse
-//
-
 import SwiftUI
+import SynapseCore
 
 struct HeatmapView: View {
-    let data: [[Double]]
-    let rowLabels: [String]
-    let columnLabels: [String]
-    
+    @Binding var weights: Weights
+    @Binding var regions: [Region]
+    @Binding var matrix: [[Double]]
+
+    @State private var selected: (row: Int, col: Int)? = nil
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Weight Heatmap Visualization")
-                .font(.headline)
-            
-            ScrollView([.horizontal, .vertical]) {
-                VStack(spacing: 0) {
-                    // Column headers
-                    HStack(spacing: 0) {
-                        Color.clear
-                            .frame(width: 100)
-                        
-                        ForEach(0..<columnLabels.count, id: \.self) { col in
-                            Text(columnLabels[col])
-                                .frame(width: 60)
-                                .font(.caption2)
-                                .rotationEffect(.degrees(-45))
-                                .padding(.vertical, 4)
-                        }
-                    }
-                    
-                    // Heatmap grid
-                    ForEach(0..<data.count, id: \.self) { row in
-                        HStack(spacing: 0) {
-                            Text(rowLabels[row])
-                                .frame(width: 100, alignment: .leading)
-                                .font(.caption)
-                            
-                            ForEach(0..<data[row].count, id: \.self) { col in
-                                Rectangle()
-                                    .fill(colorForValue(data[row][col]))
-                                    .frame(width: 60, height: 40)
-                                    .border(Color.gray.opacity(0.3), width: 0.5)
-                                    .overlay(
-                                        Text(String(format: "%.2f", data[row][col]))
-                                            .font(.caption2)
-                                            .foregroundColor(textColorForValue(data[row][col]))
-                                    )
+        GeometryReader { geometry in
+            VStack {
+                if regions.isEmpty {
+                    Text("No regions configured").foregroundColor(.secondary)
+                } else {
+                    Canvas { context, size in
+                        let n = regions.count
+                        guard n > 0 else { return }
+                        let cellW = size.width / CGFloat(max(1, n))
+                        let cellH = size.height / CGFloat(max(1, n))
+
+                        for row in 0..<n {
+                            for col in 0..<n {
+                                let value = matrix[safe: row]?[safe: col] ?? 0.0
+                                let color = colorFor(value: value)
+                                let rect = CGRect(x: CGFloat(col) * cellW, y: CGFloat(row) * cellH, width: cellW, height: cellH)
+                                context.fill(Path(rect), with: .color(color))
+
+                                if selected?.row == row && selected?.col == col {
+                                    context.stroke(Path(rect.insetBy(dx: 2, dy: 2)), with: .color(.primary), lineWidth: 2)
+                                }
+
+                                if row == col {
+                                    let name = regions[row].name
+                                    let text = Text(name)
+                                        .font(.system(size: min(12, cellW * 0.14)))
+                                        .foregroundColor(.white)
+                                    context.draw(text, in: rect.insetBy(dx: 4, dy: 4))
+                                }
                             }
                         }
                     }
+                    .gesture(DragGesture(minimumDistance: 0).onEnded { value in
+                        let n = regions.count
+                        let w = geometry.size.width / CGFloat(n)
+                        let h = geometry.size.height / CGFloat(n)
+                        let col = min(n - 1, max(0, Int(value.location.x / w)))
+                        let row = min(n - 1, max(0, Int(value.location.y / h)))
+                        selected = (row, col)
+                    })
+                    .overlay(alignment: .bottom) {
+                        if let selected, regions.indices.contains(selected.row), regions.indices.contains(selected.col) {
+                            HStack {
+                                Text("cell: \(regions[selected.row].name) <-> \(regions[selected.col].name)")
+                                Spacer()
+                                Text(String(format: "sim: %.3f", matrix[selected.row][selected.col]))
+                            }
+                            .padding(8)
+                            .background(.regularMaterial)
+                        }
+                    }
                 }
-                .padding()
             }
         }
     }
-    
-    private func colorForValue(_ value: Double) -> Color {
-        let normalized = min(max(value, 0.0), 1.0)
-        // Blue (low) to Red (high) gradient
-        return Color(red: normalized, green: 0.3 * (1.0 - abs(normalized - 0.5)), blue: 1.0 - normalized)
+
+    private func colorFor(value: Double) -> Color {
+        let v = max(0.0, min(1.0, value))
+        if v < 0.5 {
+            let t = v / 0.5
+            return Color(.sRGB, red: CGFloat(0.0 + t * 1.0), green: CGFloat(0.0 + t * 0.9), blue: CGFloat(0.8 - t * 0.8), opacity: 1.0)
+        }
+        let t = (v - 0.5) / 0.5
+        return Color(.sRGB, red: 1.0, green: CGFloat(0.9 - t * 0.8), blue: 0.0, opacity: 1.0)
     }
-    
-    private func textColorForValue(_ value: Double) -> Color {
-        // Use white text for dark backgrounds, black for light
-        return value > 0.5 ? .white : .black
+}
+
+private extension Array {
+    subscript(safe idx: Int) -> Element? {
+        (idx >= 0 && idx < count) ? self[idx] : nil
     }
 }
