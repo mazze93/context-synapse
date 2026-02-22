@@ -4,62 +4,43 @@
 ![Local--First](https://img.shields.io/badge/Architecture-Local--First-success)
 ![Bayesian](https://img.shields.io/badge/Learning-Bayesian-purple)
 ![Status](https://img.shields.io/badge/Status-Experimental-critical)
-ContextSynapse
-
 ![Deterministic](https://img.shields.io/badge/Deterministic-Yes-lightgrey)
 ![Resilience](https://img.shields.io/badge/Resilience-Tested-green)
 
-ContextSynapse is a local-first, adaptive prompt orchestration engine that treats context like a living system—not a static prefix.
+![Context Synapse Social Preview](.github/social-preview.png)
 
-It combines Bayesian learning, contextual matrices, and intentional fault injection to dynamically assemble prompts based on intent, tone, domain, region, and environment. Instead of brittle rules, ContextSynapse is designed to evolve under uncertainty while remaining inspectable and stable.
+ContextSynapse is a local-first adaptive prompt orchestration engine that treats context as a living system instead of a static prefix.
 
-Built in Swift as a CLI + macOS app + App-Intent-ready core, ContextSynapse is designed for people exploring how human intention, machine response, and uncertainty can coexist inside resilient systems.
+It combines Bayesian learning, contextual matrices, and intentional fault injection to assemble prompts based on intent, tone, domain, region, and environment. The goal is resilient adaptation under uncertainty while remaining inspectable and testable.
 
-⸻
+Built in Swift as a CLI + macOS app + App-Intent-ready core, ContextSynapse is aimed at teams exploring human-machine interaction with explicit control over behavior and failure modes.
 
-Why this exists
+## Why this exists
+Most prompt systems assume perfect inputs, stable context, and static rules.
 
-Most prompt systems assume:
-	•	perfect inputs
-	•	stable context
-	•	static rules
+ContextSynapse assumes the opposite:
+- Context changes continuously.
+- Signals can be missing or degraded.
+- Learning must remain visible and reversible.
 
-ContextSynapse assumes the opposite.
+## Key features
+- Bayesian weighting that adapts intent, tone, and domain priors over time.
+- Contextual matrix engine that blends triggers, priors, and live signals.
+- Regional similarity analysis with cosine-based proximity.
+- Intentional fragility and fault injection for resilience testing.
+- Deterministic and testable behavior under controlled conditions.
+- Local-first architecture with no required cloud dependency.
 
-It is designed to:
-	•	learn from use (Bayesian priors update with feedback)
-	•	survive damage (controlled fault injection simulates partial data loss)
-	•	remain interpretable (weights, priors, and similarities are visible and adjustable)
-	•	operate locally (no required network or cloud dependency)
+## Philosophy
+ContextSynapse treats prompting as a cognitive process, not string concatenation.
 
-This makes it suitable for research, creative tooling, and anyone exploring post-deterministic human–machine interaction models.
+Context is negotiated, reinforced, and revised over time.
 
-⸻
-
-Key Features
-	•	🧠 Bayesian Weighting
-Uses Beta priors to adapt intent, tone, and domain selection over time.
-	•	🧩 Contextual Matrix Engine
-Blends triggers, priors, and live signals into weighted prompt assembly.
-	•	🌍 Regional Similarity Analysis
-Cosine similarity across region vectors with interactive heatmap visualization.
-	•	⚡ Intentional Fragility
-Built-in fault injection (“disintegrating sky plates”) to test resilience under partial failure.
-	•	🧪 Deterministic & Testable
-Unit tests validate convergence, degradation tolerance, and numerical stability.
-	•	🛠 Local-First Architecture
-Swift Package core, CLI, macOS UI, App-Intent ready—no vendor lock-in.
-
-⸻
-
-Philosophy
-
-ContextSynapse treats prompting as a dynamic cognitive process, not a string operation.
-
-Context is not something you prepend.
-It’s something you negotiate, reinforce, and occasionally let fracture.
-
-⸻
+## GitHub social preview
+To make repository link shares use the branded card:
+1. Open repository `Settings`.
+2. Open `General`.
+3. In `Social preview`, upload `.github/social-preview.png`.
 
 ## Design Principles
 
