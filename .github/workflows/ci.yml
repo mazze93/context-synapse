@@ -2,33 +2,165 @@ name: CI
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SWIFT_CLI_PRODUCT: contextsynapse
+  APP_SCHEME: ContextSynapseApp
+  REQUIRED_REPO_FILES: |
+    .gitignore
+    Package.swift
+    README.md
+    SECURITY.md
+    INSTALL.md
+    LICENSE
+    default_config.json
 
 jobs:
-  build-test:
-    runs-on: macos-latest
+  validate:
+    name: Build, test, and guardrails
+    runs-on: macos-15
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Show Swift version
-        run: swift --version
-
-      - name: Build
-        run: swift build
-
-      - name: Test
-        run: swift test
-
-      - name: Verify generated artifacts are not tracked
+      - name: Show toolchain versions
+        shell: bash
         run: |
           set -euo pipefail
-          tracked_generated=$(git ls-files | grep -E '(^|/)\.build/|(^|/)\.swiftpm/|(^|/)\.DS_Store$|(^|/)\.vscode/|(^|/)\.idea/' || true)
-          if [ -n "$tracked_generated" ]; then
-            echo "Tracked generated/editor artifacts detected:"
-            echo "$tracked_generated"
+          xcodebuild -version
+          swift --version
+          sw_vers
+
+      - name: Verify required repository files
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r path; do
+            [[ -z "${path}" ]] && continue
+            test -e "${path}" || { echo "Missing required path: ${path}" >&2; exit 1; }
+          done <<< "${REQUIRED_REPO_FILES}"
+
+      - name: Verify tracked generated and editor artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked_generated="$(
+            git ls-files | grep -E '(^|/)\.build/|(^|/)\.swiftpm/|(^|/)\.vscode/|(^|/)\.idea/' || true
+          )"
+          if [[ -n "${tracked_generated}" ]]; then
+            echo "Tracked generated/editor artifacts detected:" >&2
+            echo "${tracked_generated}" >&2
             exit 1
           fi
+
+      - name: Reject tag-driven release behavior in CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "Tag releases are handled only by .github/workflows/release.yml" >&2
+            exit 1
+          fi
+
+      - name: Resolve Swift package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift package resolve
+
+      - name: Validate package manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift package dump-package > /tmp/package.json
+          test -s /tmp/package.json
+
+      - name: Build CLI and package targets in release mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build -c release
+
+      - name: Run test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test --parallel
+
+      - name: Verify CLI artifact exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x ".build/release/${SWIFT_CLI_PRODUCT}" || {
+            echo "Expected CLI binary .build/release/${SWIFT_CLI_PRODUCT} was not produced" >&2
+            exit 1
+          }
+
+      - name: Detect and optionally build macOS app bundle without signing
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if compgen -G "*.xcworkspace" > /dev/null; then
+            container_flag="-workspace"
+            container_path="$(printf '%s\n' *.xcworkspace | head -n 1)"
+          elif compgen -G "*.xcodeproj" > /dev/null; then
+            container_flag="-project"
+            container_path="$(printf '%s\n' *.xcodeproj | head -n 1)"
+          else
+            echo "No Xcode workspace/project found; skipping app bundle build in CI"
+            exit 0
+          fi
+
+          xcodebuild -list -json "${container_flag}" "${container_path}" > /tmp/xcodebuild-list.json
+
+          if ! python3 -c $'import json\nimport sys\n\ndata = json.load(open(sys.argv[2], "r", encoding="utf-8"))\nschemes = []\nfor key in ("workspace", "project"):\n    section = data.get(key, {})\n    if isinstance(section, dict):\n        schemes.extend(section.get("schemes", []) or [])\nraise SystemExit(0 if sys.argv[1] in schemes else 1)\n' "${APP_SCHEME}" /tmp/xcodebuild-list.json
+          then
+            echo "No buildable app scheme named ${APP_SCHEME} found in ${container_path}; skipping app build in CI"
+            exit 0
+          fi
+
+          echo "Detected app scheme ${APP_SCHEME}; building unsigned Release artifact"
+          xcodebuild \
+            "${container_flag}" "${container_path}" \
+            -scheme "${APP_SCHEME}" \
+            -configuration Release \
+            -destination "platform=macOS" \
+            -derivedDataPath .build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Packaging sanity checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s README.md
+          test -s SECURITY.md
+          test -s default_config.json
+          file ".build/release/${SWIFT_CLI_PRODUCT}" || true
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-diagnostics-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            /tmp/package.json
+            /tmp/xcodebuild-list.json
+            .build/DerivedData/Logs/**

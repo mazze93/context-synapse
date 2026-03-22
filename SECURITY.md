@@ -8,7 +8,7 @@ I take security seriously and appreciate responsible disclosure of vulnerabiliti
 
 If you discover a security issue, please report it through one of the following channels:
 
-- **GitHub Security Advisories**: Use [GitHub's private vulnerability reporting](https://github.com/mazze93/<REPO>/security/advisories) for the specific repository
+- **GitHub Security Advisories**: Use [GitHub's private vulnerability reporting](https://github.com/mazze93/context-synapse/security/advisories) for this repository
 - **Email**: See the repository README for maintainer contact information (if available)
 
 ### What to Include in Your Report
@@ -176,6 +176,61 @@ If you discover a vulnerability in a third-party dependency:
 1. Report it to the upstream maintainer first
 2. If the dependency is unmaintained, report it here so I can evaluate migration options
 
+## Release Integrity and Artifact Verification
+
+Official release artifacts are published only through GitHub Releases for this repository.
+
+### What users should verify before installing
+
+Before using a release artifact, verify all of the following:
+
+1. The artifact was downloaded from the repository's GitHub Releases page.
+2. The artifact version matches the release tag you intended to install.
+3. The artifact checksum matches the corresponding entry in `SHA256SUMS.txt`.
+4. If an SPDX SBOM is attached, its version and package identity match the release.
+5. If a macOS app artifact is present, it should be signed with the expected Developer ID identity and, for production releases, notarized and stapled.
+
+### Supported verification methods
+
+Supported integrity checks include:
+
+- SHA-256 verification against `SHA256SUMS.txt`
+- inspection of the attached SPDX SBOM
+- standard macOS signature verification tools for app artifacts, such as `codesign` and `spctl`
+- GitHub release metadata review to confirm asset provenance and tag alignment
+
+### Signing and provenance expectations
+
+For release candidates or dry-run builds, unsigned workflow artifacts may exist inside GitHub Actions for validation purposes. Those are not production releases.
+
+For production macOS app releases, signing and notarization are part of the expected trust model. If a published app artifact is not signed or notarized as documented, treat that release as suspect and report it.
+
+If provenance attestations are introduced for this repository in the future, they will apply to published release assets and will be documented here.
+
+### Vulnerability reporting boundary for release artifacts
+
+Security reports are appropriate when they involve:
+
+- tampered release artifacts
+- mismatched checksums that cannot be explained by a documented correction
+- invalid or missing expected signing/notarization on a production app release
+- release pipeline behavior that could enable unauthorized publication or artifact substitution
+- reproducible supply chain integrity weaknesses affecting distributed artifacts
+
+### Coordinated disclosure expectations
+
+Please report suspected security issues privately using the repository's security reporting channel. Do not publish exploit details, stolen credentials, or release-tampering claims publicly before maintainers have had a reasonable chance to investigate and respond.
+
+### What is not treated as a security report
+
+The following are generally not security reports by themselves:
+
+- requests for custom packaging formats
+- unsigned dry-run workflow artifacts that were never published as production releases
+- confusion about local build steps when no official release artifact is involved
+- stale documentation that does not create an actual integrity, signing, or distribution risk
+- feature requests for additional verification methods or package ecosystems
+
 ## Updates to This Policy
 
 This security policy is reviewed periodically and updated as needed. Material changes will be announced through GitHub Security Advisories or repository releases.
@@ -186,6 +241,6 @@ Version history is maintained in the repository commit history.
 
 **Document Information**
 
-- **Last Updated**: February 9, 2026
+- **Last Updated**: March 21, 2026
 - **Effective Date**: February 1, 2026
-- **Next Review**: May 1, 2026
+- **Next Review**: June 21, 2026

@@ -1,0 +1,441 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build for a non-production dry run
+        required: true
+        type: string
+      dry_run:
+        description: Build artifacts only; do not publish a GitHub Release
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref || github.event.inputs.ref }}
+  cancel-in-progress: false
+
+env:
+  CLI_PRODUCT_NAME: contextsynapse
+  APP_SCHEME: ContextSynapseApp
+  APP_BUNDLE_NAME: ContextSynapseApp.app
+  APP_ZIP_BASENAME: ContextSynapseApp
+  DIST_DIR: dist
+  SBOM_BASENAME: context-synapse
+  MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
+  APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+
+jobs:
+  prepare:
+    name: Prepare release context
+    runs-on: ubuntu-latest
+    outputs:
+      release_mode: ${{ steps.mode.outputs.release_mode }}
+      source_ref: ${{ steps.mode.outputs.source_ref }}
+      version: ${{ steps.mode.outputs.version }}
+      publish_release: ${{ steps.mode.outputs.publish_release }}
+
+    steps:
+      - name: Determine release mode
+        id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME}"
+            source_ref="${GITHUB_REF}"
+            release_mode="production"
+            publish_release="true"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.dry_run }}" != "true" ]]; then
+              echo "workflow_dispatch is reserved for dry-run testing only" >&2
+              exit 1
+            fi
+
+            raw_ref="${{ github.event.inputs.ref }}"
+            if [[ -z "${raw_ref}" ]]; then
+              echo "workflow_dispatch requires a ref input" >&2
+              exit 1
+            fi
+
+            sanitized_ref="${raw_ref#refs/heads/}"
+            sanitized_ref="${sanitized_ref#refs/tags/}"
+            sanitized_ref="${sanitized_ref//\//-}"
+
+            version="dry-run-${sanitized_ref}-${GITHUB_RUN_NUMBER}"
+            source_ref="${raw_ref}"
+            release_mode="dry-run"
+            publish_release="false"
+          else
+            echo "Unsupported event context for release workflow" >&2
+            exit 1
+          fi
+
+          {
+            echo "release_mode=${release_mode}"
+            echo "source_ref=${source_ref}"
+            echo "version=${version}"
+            echo "publish_release=${publish_release}"
+          } >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build release artifacts
+    runs-on: macos-15
+    needs:
+      - prepare
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_ref }}
+          fetch-depth: 0
+
+      - name: Verify release tags point to main
+        if: needs.prepare.outputs.release_mode == 'production'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main"; then
+            echo "Ref ${GITHUB_SHA} is not contained in origin/main; refusing production release" >&2
+            exit 1
+          fi
+
+      - name: Show build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+          sw_vers
+          mkdir -p "${DIST_DIR}"
+
+      - name: Resolve Swift package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift package resolve
+
+      - name: Build CLI in release mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build -c release --product "${CLI_PRODUCT_NAME}"
+          test -x ".build/release/${CLI_PRODUCT_NAME}"
+
+      - name: Package CLI artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          arch_name="$(uname -m)"
+          cli_stage="${RUNNER_TEMP}/cli-stage"
+          cli_archive="${DIST_DIR}/${CLI_PRODUCT_NAME}-${{ needs.prepare.outputs.version }}-macos-${arch_name}.tar.gz"
+
+          rm -rf "${cli_stage}"
+          mkdir -p "${cli_stage}"
+
+          cp ".build/release/${CLI_PRODUCT_NAME}" "${cli_stage}/"
+          cp README.md LICENSE SECURITY.md INSTALL.md default_config.json "${cli_stage}/"
+
+          tar -C "${cli_stage}" -czf "${cli_archive}" .
+          test -s "${cli_archive}"
+
+      - name: Detect optional Xcode app packaging path
+        id: appdetect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          container_flag=""
+          container_path=""
+
+          if compgen -G "*.xcworkspace" > /dev/null; then
+            container_flag="-workspace"
+            container_path="$(printf '%s\n' *.xcworkspace | head -n 1)"
+          elif compgen -G "*.xcodeproj" > /dev/null; then
+            container_flag="-project"
+            container_path="$(printf '%s\n' *.xcodeproj | head -n 1)"
+          else
+            echo "No Xcode workspace/project found; CLI-only release path active"
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          xcodebuild -list -json "${container_flag}" "${container_path}" > "${RUNNER_TEMP}/xcodebuild-list.json"
+
+          if ! python3 -c $'import json\nimport sys\n\ndata = json.load(open(sys.argv[2], "r", encoding="utf-8"))\nschemes = []\nfor key in ("workspace", "project"):\n    section = data.get(key, {})\n    if isinstance(section, dict):\n        schemes.extend(section.get("schemes", []) or [])\nraise SystemExit(0 if sys.argv[1] in schemes else 1)\n' "${APP_SCHEME}" "${RUNNER_TEMP}/xcodebuild-list.json"
+          then
+            echo "No buildable app scheme named ${APP_SCHEME} found in ${container_path}; CLI-only release path active"
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          {
+            echo "available=true"
+            echo "container_flag=${container_flag}"
+            echo "container_path=${container_path}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Enforce signing prerequisites for production app release
+        if: needs.prepare.outputs.release_mode == 'production' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        env:
+          APPLE_CERT_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_PASSWORD }}
+          APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          required_vars=(
+            MACOS_SIGNING_IDENTITY
+            APPLE_TEAM_ID
+          )
+
+          for name in "${required_vars[@]}"; do
+            value="${!name:-}"
+            if [[ -z "${value}" ]]; then
+              echo "Missing required repository variable: ${name}" >&2
+              exit 1
+            fi
+          done
+
+          required_secrets=(
+            APPLE_CERT_BASE64
+            APPLE_CERT_PASSWORD
+            APPLE_KEYCHAIN_PASSWORD
+            APPLE_NOTARY_KEY_ID
+            APPLE_NOTARY_ISSUER_ID
+            APPLE_NOTARY_PRIVATE_KEY_BASE64
+          )
+
+          for name in "${required_secrets[@]}"; do
+            value="${!name:-}"
+            if [[ -z "${value}" ]]; then
+              echo "Missing required repository secret: ${name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build app unsigned
+        if: steps.appdetect.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            "${{ steps.appdetect.outputs.container_flag }}" "${{ steps.appdetect.outputs.container_path }}" \
+            -scheme "${APP_SCHEME}" \
+            -configuration Release \
+            -destination "platform=macOS" \
+            -derivedDataPath .build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Locate built app
+        if: steps.appdetect.outputs.available == 'true'
+        id: applocate
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(find .build/DerivedData/Build/Products/Release -type d -name "${APP_BUNDLE_NAME}" -print -quit)"
+          if [[ -z "${app_path}" ]]; then
+            echo "Detected scheme ${APP_SCHEME} but could not locate ${APP_BUNDLE_NAME}" >&2
+            exit 1
+          fi
+          echo "app_path=${app_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Import Developer ID certificate
+        if: needs.prepare.outputs.release_mode == 'production' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        env:
+          APPLE_CERT_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_PASSWORD }}
+          APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="${RUNNER_TEMP}/release-signing.keychain-db"
+          cert_path="${RUNNER_TEMP}/developer-id-app.p12"
+
+          echo "${APPLE_CERT_BASE64}" | base64 --decode > "${cert_path}"
+
+          security create-keychain -p "${APPLE_KEYCHAIN_PASSWORD}" "${keychain}"
+          security set-keychain-settings -lut 21600 "${keychain}"
+          security unlock-keychain -p "${APPLE_KEYCHAIN_PASSWORD}" "${keychain}"
+          security import "${cert_path}" -k "${keychain}" -P "${APPLE_CERT_PASSWORD}" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychains -d user -s "${keychain}" $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${APPLE_KEYCHAIN_PASSWORD}" "${keychain}"
+
+      - name: Sign app bundle
+        if: needs.prepare.outputs.release_mode == 'production' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="${{ steps.applocate.outputs.app_path }}"
+          codesign \
+            --force \
+            --deep \
+            --options runtime \
+            --timestamp \
+            --sign "${MACOS_SIGNING_IDENTITY}" \
+            "${app_path}"
+
+          codesign --verify --deep --strict --verbose=2 "${app_path}"
+          spctl --assess --type execute --verbose=4 "${app_path}"
+
+      - name: Prepare notary API key
+        if: needs.prepare.outputs.release_mode == 'production' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        env:
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+        run: |
+          set -euo pipefail
+          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+          echo "${APPLE_NOTARY_PRIVATE_KEY_BASE64}" | base64 --decode > "${key_path}"
+          chmod 600 "${key_path}"
+          echo "NOTARY_KEY_PATH=${key_path}" >> "${GITHUB_ENV}"
+
+      - name: Notarize and staple app
+        if: needs.prepare.outputs.release_mode == 'production' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        env:
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+
+          app_path="${{ steps.applocate.outputs.app_path }}"
+          preflight_zip="${RUNNER_TEMP}/${APP_ZIP_BASENAME}-preflight.zip"
+
+          ditto -c -k --sequesterRsrc --keepParent "${app_path}" "${preflight_zip}"
+
+          xcrun notarytool submit \
+            "${preflight_zip}" \
+            --key "${NOTARY_KEY_PATH}" \
+            --key-id "${APPLE_NOTARY_KEY_ID}" \
+            --issuer "${APPLE_NOTARY_ISSUER_ID}" \
+            --wait
+
+          xcrun stapler staple "${app_path}"
+          xcrun stapler validate "${app_path}"
+
+      - name: Package app artifact for dry run
+        if: needs.prepare.outputs.release_mode == 'dry-run' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="${{ steps.applocate.outputs.app_path }}"
+          final_zip="${DIST_DIR}/${APP_ZIP_BASENAME}-${{ needs.prepare.outputs.version }}-unsigned.zip"
+          ditto -c -k --sequesterRsrc --keepParent "${app_path}" "${final_zip}"
+          test -s "${final_zip}"
+
+      - name: Package app artifact for production
+        if: needs.prepare.outputs.release_mode == 'production' && steps.appdetect.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="${{ steps.applocate.outputs.app_path }}"
+          final_zip="${DIST_DIR}/${APP_ZIP_BASENAME}-${{ needs.prepare.outputs.version }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "${app_path}" "${final_zip}"
+          test -s "${final_zip}"
+
+      - name: Generate SPDX SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          swift package describe --type json > "${RUNNER_TEMP}/package-describe.json"
+
+          python3 -c $'import json\nimport os\nimport sys\nfrom datetime import datetime, timezone\n\nversion, sbom_name, describe_path, dist_dir, repository = sys.argv[1:6]\npkg = json.load(open(describe_path, "r", encoding="utf-8"))\ndoc_ns = f"https://github.com/{repository}/releases/tag/{version}#spdx"\nroot_spdx = "SPDXRef-Package-context-synapse"\ndocument = {\n    "spdxVersion": "SPDX-2.3",\n    "dataLicense": "CC0-1.0",\n    "SPDXID": "SPDXRef-DOCUMENT",\n    "name": f"context-synapse-{version}",\n    "documentNamespace": doc_ns,\n    "creationInfo": {\n        "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),\n        "creators": ["Tool: swift-package-describe-to-spdx"],\n    },\n    "packages": [],\n    "relationships": [],\n}\nroot_pkg = {\n    "name": pkg.get("name", "context-synapse"),\n    "SPDXID": root_spdx,\n    "versionInfo": version,\n    "downloadLocation": "NOASSERTION",\n    "filesAnalyzed": False,\n    "licenseConcluded": "NOASSERTION",\n    "licenseDeclared": "NOASSERTION",\n    "supplier": "NOASSERTION",\n}\ndocument["packages"].append(root_pkg)\ndocument["relationships"].append({\n    "spdxElementId": "SPDXRef-DOCUMENT",\n    "relationshipType": "DESCRIBES",\n    "relatedSpdxElement": root_spdx,\n})\nfor target in pkg.get("targets", []):\n    target_name = target.get("name")\n    if not target_name:\n        continue\n    spdx_id = f"SPDXRef-Target-{target_name}"\n    document["packages"].append({\n        "name": target_name,\n        "SPDXID": spdx_id,\n        "versionInfo": version,\n        "downloadLocation": "NOASSERTION",\n        "filesAnalyzed": False,\n        "licenseConcluded": "NOASSERTION",\n        "licenseDeclared": "NOASSERTION",\n        "supplier": "NOASSERTION",\n    })\n    document["relationships"].append({\n        "spdxElementId": root_spdx,\n        "relationshipType": "CONTAINS",\n        "relatedSpdxElement": spdx_id,\n    })\nout_path = os.path.join(dist_dir, f"{sbom_name}-{version}.spdx.json")\nwith open(out_path, "w", encoding="utf-8") as fh:\n    json.dump(document, fh, indent=2)\n    fh.write("\\n")\n' \
+            "${{ needs.prepare.outputs.version }}" \
+            "${SBOM_BASENAME}" \
+            "${RUNNER_TEMP}/package-describe.json" \
+            "${DIST_DIR}" \
+            "${{ github.repository }}"
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd "${DIST_DIR}"
+            shasum -a 256 * > "SHA256SUMS.txt"
+          )
+          test -s "${DIST_DIR}/SHA256SUMS.txt"
+
+      - name: Upload release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle-${{ needs.prepare.outputs.version }}
+          path: |
+            dist/**
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - build
+    if: needs.prepare.outputs.publish_release == 'true'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: release-bundle-${{ needs.prepare.outputs.version }}
+          path: dist
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.prepare.outputs.version }}"
+
+          files=()
+          while IFS= read -r -d '' file; do
+            files+=("${file}")
+          done < <(find dist -type f -print0 | sort -z)
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${files[@]}" --clobber
+          else
+            gh release create "${tag}" "${files[@]}" \
+              --title "${tag}" \
+              --generate-notes
+          fi
+
+  dry-run-summary:
+    name: Dry-run summary
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - build
+    if: needs.prepare.outputs.release_mode == 'dry-run'
+
+    steps:
+      - name: Dry-run complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Dry-run release build completed. Artifacts were uploaded as workflow artifacts only."

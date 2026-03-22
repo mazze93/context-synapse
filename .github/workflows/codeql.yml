@@ -1,0 +1,102 @@
+name: CodeQL
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "19 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_SCHEME: ContextSynapseApp
+
+jobs:
+  analyze:
+    name: Analyze (Swift)
+    runs-on: macos-15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - swift
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: manual
+
+      - name: Show toolchain versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+
+      - name: Resolve Swift package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift package resolve
+
+      - name: Build package for analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build -c release
+
+      - name: Optionally build macOS app bundle for analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if compgen -G "*.xcworkspace" > /dev/null; then
+            container_flag="-workspace"
+            container_path="$(printf '%s\n' *.xcworkspace | head -n 1)"
+          elif compgen -G "*.xcodeproj" > /dev/null; then
+            container_flag="-project"
+            container_path="$(printf '%s\n' *.xcodeproj | head -n 1)"
+          else
+            echo "No Xcode workspace/project found; skipping app bundle build for CodeQL"
+            exit 0
+          fi
+
+          xcodebuild -list -json "${container_flag}" "${container_path}" > /tmp/xcodebuild-list.json
+
+          if ! python3 -c $'import json\nimport sys\n\ndata = json.load(open(sys.argv[2], "r", encoding="utf-8"))\nschemes = []\nfor key in ("workspace", "project"):\n    section = data.get(key, {})\n    if isinstance(section, dict):\n        schemes.extend(section.get("schemes", []) or [])\nraise SystemExit(0 if sys.argv[1] in schemes else 1)\n' "${APP_SCHEME}" /tmp/xcodebuild-list.json
+          then
+            echo "No buildable app scheme named ${APP_SCHEME} found in ${container_path}; skipping app build for CodeQL"
+            exit 0
+          fi
+
+          xcodebuild \
+            "${container_flag}" "${container_path}" \
+            -scheme "${APP_SCHEME}" \
+            -configuration Release \
+            -destination "platform=macOS" \
+            -derivedDataPath .build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
