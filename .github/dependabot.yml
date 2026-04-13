@@ -1,0 +1,42 @@
+version: 2
+
+updates:
+  # ── Swift Package Manager ─────────────────────────────────────────────────
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "swift"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      swift-dependencies:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions-dependencies:
+        update-types:
+          - "minor"
+          - "patch"
