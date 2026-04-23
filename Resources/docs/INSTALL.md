@@ -8,6 +8,7 @@ This guide describes building the ContextSynapse package (with Bayesian priors a
 - Optional: Apple Developer account to sign/notarize .app
 
 ## Quick build (CLI)
+
 ```bash
 swift build
 .build/debug/context_synapse "Summarize my notes" --app Notes
