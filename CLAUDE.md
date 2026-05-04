@@ -1,7 +1,6 @@
 # ContextSynapse — Claude Context
 
-Local-first Bayesian prompt orchestration engine. Status: **experimental/research-grade**.
-Not a consumer product — built for neurodivergent developers exploring human-machine context negotiation.
+Local-first Bayesian context engine. Treats context as a living system — it decays, rots, and forgets on purpose. Status: **experimental/research-grade**.
 
 ---
 
@@ -9,11 +8,11 @@ Not a consumer product — built for neurodivergent developers exploring human-m
 
 | Concern | Detail |
 |---------|--------|
-| Language | Swift 5.8+, macOS 13+ only |
+| Language | Swift 6.0+, macOS 13+ |
 | Build | `swift build -c release` |
 | Test | `swift test --parallel` |
 | CI | GitHub Actions (`macos-15` runner) |
-| Persistence | JSON files in `~/Library/Application Support/ContextSynapse/` |
+| Persistence | JSON in `~/Library/Application Support/ContextSynapse/` |
 | Dependencies | None (pure Swift stdlib + Foundation) |
 
 ---
@@ -21,25 +20,34 @@ Not a consumer product — built for neurodivergent developers exploring human-m
 ## Repository Layout
 
 ```
-Package.swift                    # Swift package manifest
-default_config.json              # Canonical seed config (committed, used in CI sanity check)
-Resources/default_config.json    # Duplicate for bundled resources
-scripts/demo_convergence.sh      # Demo script for Bayesian convergence
+Package.swift
+default_config.json           # Canonical seed config (priors + referee config)
+Resources/default_config.json # Bundled duplicate
+scripts/demo_convergence.sh
 
 Sources/
   SynapseCore/
-    SynapseCore.swift            # Entire core library (single file)
+    SynapseCore.swift          # Bayesian engine, AI clients, fault injection
+    DecayConstants.swift       # All decay/rot/lighthouse constants — single source of truth
+    SynapseContent.swift       # Immutable synapse content descriptor
+    InteractionRecord.swift    # Event classification + successWeight mapping
+    SemanticDistanceStrategy.swift  # Distance protocol + StructuralHeuristicDistance
+    SynapseWeightState.swift   # Per-synapse decay math, rot score, lighthouse floor
+    SynapseReferee.swift       # FunctionalReferee, AbrasiveReferee, RefereeConfig
   contextsynapse/
-    main.swift                   # CLI entry point
+    main.swift                 # CLI entry point
   ContextSynapseApp/
-    AppMain.swift                # SwiftUI @main + AppViewModel
-    ContentView.swift            # Main UI layout
-    HeatmapView.swift            # Canvas-based cosine similarity heatmap
-    WeightGridView.swift         # Weight editing grid
-    RegionModel.swift            # SynapseCore extension for canonical vector
+    AppMain.swift
+    ContentView.swift
+    HeatmapView.swift
+    WeightGridView.swift
+    RegionModel.swift
 
 Tests/
-  BayesianConvergenceTests.swift # All tests in one file (XCTest)
+  BayesianConvergenceTests.swift
+  SynapseWeightStateTests.swift  # Lighthouse floor, cauterization, decay convergence
+  SynapseRefereeTests.swift      # Referee activation logic
+  SemanticDistanceTests.swift    # Distance contract tests
 ```
 
 ---
@@ -48,224 +56,182 @@ Tests/
 
 | Product | Type | Entry |
 |---------|------|-------|
-| `SynapseCore` | Library | `Sources/SynapseCore/SynapseCore.swift` |
+| `SynapseCore` | Library | `Sources/SynapseCore/` (multi-file) |
 | `contextsynapse` | Executable (CLI) | `Sources/contextsynapse/main.swift` |
 | `ContextSynapseApp` | Executable (SwiftUI GUI) | `Sources/ContextSynapseApp/AppMain.swift` |
-| `BayesianConvergenceTests` | Test target | `Tests/BayesianConvergenceTests.swift` |
-
-All targets depend only on `SynapseCore`. There are no external Swift package dependencies.
+| Test targets | XCTest | `Tests/*.swift` |
 
 ---
 
-## Core Architecture (`SynapseCore.swift`)
+## Core Architecture
 
-### Data Model
+### v0.2 Layer — Bayesian Engine (`SynapseCore.swift`)
 
 ```
 Weights
-├── intents:  [String: Double]          # Summarize, Create, Analyze, Brainstorm, ActionableSteps
-├── tones:    [String: Double]          # Concise, Technical, Casual, Persuasive, Creative
-├── domains:  [String: Double]          # Work, Personal, GameDesign, Marketing, Writing
-├── triggers: [String: [String: Double]] # Context boosters keyed by "app.X", "time.Y", "focus.Z"
+├── intents:  [String: Double]
+├── tones:    [String: Double]
+├── domains:  [String: Double]
+├── triggers: [String: [String: Double]]
 └── priors:   Priors
-    ├── intents:  [String: Prior]       # Beta distribution (alpha, beta) per intent
+    ├── intents:  [String: Prior]  # Beta(alpha, beta)
     ├── tones:    [String: Prior]
     └── domains:  [String: Prior]
 
-Prior { alpha: Double, beta: Double }   # Beta prior; probability() = alpha/(alpha+beta)
-
-Region { name: String, vector: [Double] } # Named embedding vector for cosine similarity
-
-ExportBundle { version, exportDate, weights, regions, metadata } # State snapshot for export/import
-UserProfile  { id, displayName, createdAt, lastUsedAt }          # Per-user metadata
+Prior { alpha, beta }            # probability() = alpha/(alpha+beta)
+Region { name, vector }          # Named embedding vector for cosine similarity
+ExportBundle                     # Full state snapshot
+UserProfile                      # Per-user metadata
 ```
 
-### Key Methods on `SynapseCore`
+### v0.3 Layer — Decay + Rot + Lighthouse
+
+```
+DecayConstants                   # λ_base, μ, rotAlpha, lighthouseFloor, thresholds
+
+SynapseContent                   # Immutable: id, text, fileReferences, functionNames
+
+InteractionEventType             # git.commit | file.save | build.success | build.failure |
+                                 # keystroke.burst | window.switch.away | manual.feedback
+InteractionRecord                # timestamp, eventType, successWeight, synapseId
+
+SemanticDistanceStrategy         # Protocol: distance(from:to:) → [0.0, 1.0]
+StructuralHeuristicDistance      # Option A: file/function overlap + text Jaccard fallback
+
+SynapseWeightState               # Per-synapse mutable state:
+  isLighthouse: Bool             #   lighthouse floor protection
+  interactions: [InteractionRecord]
+  rotScore: Double               #   RotScore(s) = D × tanh(T_drift/T_threshold) × VelocityAmp
+  requiresCauterization: Bool    #   true when rotScore >= 0.82
+
+SessionContext                   # Session-level: lighthouse content, maxConnections, drift time
+
+SynapseReferee (protocol)
+FunctionalReferee                # Default: silent. Velocity 50% / Connectivity 30% / Decay 20%
+AbrasiveReferee                  # Opt-in: kicks to 0.1 on rot+drift. Never activates on collapse.
+ContextIntervention              # Emitted by AbrasiveReferee: data report + 4 choices, no lecture
+RefereeConfig                    # mode, driftThresholdMinutes, rotThreshold, cooldown
+RefereeMode                      # .functional | .abrasive
+```
+
+---
+
+## Key Methods
+
+### SynapseCore (v0.2)
 
 | Method | Purpose |
 |--------|---------|
-| `loadOrCreateDefaultWeights()` | Read `config.json` or seed from `defaultWeights()` |
-| `saveWeights(_:)` | Atomically write `config.json` |
-| `loadOrSeedRegions()` | Read `regions.json` or seed from `defaultRegions(for:)` |
-| `saveRegions(_:)` | Atomically write `regions.json` |
-| `applyFeedbackUpdate(chosenIntent:chosenTone:chosenDomain:positive:)` | Bayesian Beta update on priors, recomputes numeric weights |
-| `applyTriggers(base:triggers:activeKeys:)` | Multiply base weights by trigger boosters |
-| `weightedPick(_:)` | Stochastic weighted sampling over a weight map |
-| `assemblePrompt(tone:intent:domain:query:)` | Formats `[Tone] [Intent] [Domain]: query` |
-| `cosineSimilarity(_:_:)` | Tolerates mismatched vector lengths (uses shared prefix) |
-| `computeRegionSimilarities(regionsIn:)` | NxN similarity matrix + nearest-neighbor map; applies fault injection |
-| `maybeInjectFaults(into:)` | Corrupts region vectors stochastically based on `faultProbability` |
-| `canonicalVector(for:scale:)` | Sorted intents + tones + domains into a single `[Double]` |
-| `exportState(to:metadata:)` | Serialize full state to `ExportBundle` JSON |
-| `importState(from:merge:)` | Deserialize and replace or merge state |
-| `logRun(_:)` | Write per-run JSON log to `logs/run-<iso8601>.json` |
-| `listUsers()` | Enumerate user profiles from `users/` directory |
-| `switchUser(to:folderName:)` | Static factory: returns new `SynapseCore` for a different user |
-| `resetToFactoryDefaults()` | Overwrite config and regions with hard-coded defaults |
+| `loadOrCreateDefaultWeights()` | Read config.json or seed defaults |
+| `saveWeights(_:)` | Atomic write |
+| `applyFeedbackUpdate(chosenIntent:chosenTone:chosenDomain:positive:)` | Beta update + weight recompute |
+| `applyTriggers(base:triggers:activeKeys:)` | Apply context booster multipliers |
+| `weightedPick(_:)` | Stochastic weighted sampling |
+| `assemblePrompt(tone:intent:domain:query:)` | `[Tone] [Intent] [Domain]: query` |
+| `cosineSimilarity(_:_:)` | Shared-prefix tolerant |
+| `computeRegionSimilarities(regionsIn:)` | NxN matrix + nearest-neighbor map |
+| `maybeInjectFaults(into:)` | Stochastic vector corruption |
+| `exportState(to:metadata:)` | Serialize ExportBundle |
+| `importState(from:merge:)` | Replace or merge state |
+| `logRun(_:)` | Write per-run JSON log |
+| `listUsers()` | Enumerate user profiles |
 
-### Bayesian Update Flow
+### SynapseWeightState (v0.3)
 
-1. User receives an assembled prompt (intent/tone/domain were picked stochastically).
-2. User provides `--feedback good|bad`.
-3. `applyFeedbackUpdate` increments `alpha` (positive) or `beta` (negative) on that dimension's `Prior`.
-4. `updateWeightsFromPriors` maps `Prior.probability()` → `[0.1, 3.0]` range via linear interpolation.
-5. Updated weights are persisted. Over time, preferred dimensions converge toward higher probabilities.
+| Method | Purpose |
+|--------|---------|
+| `record(_:)` | Append InteractionRecord, cap history |
+| `utilityScore(at:)` | Recency-weighted average: Σ successᵢ·e^(-μΔt) / Σ e^(-μΔt) |
+| `dynamicDecayConstant(maxConnections:)` | λ_base · (1 - connectivity) · rotMultiplier |
+| `decayWeight(baseWeight:maxConnections:at:)` | W_base · e^(-λt) · U(s,t) |
+| `recomputeRotScore(content:lighthouse:at:)` | D × tanh(drift/threshold) × VelocityAmp |
+| `finalWeight(baseWeight:maxConnections:at:)` | max(floor, W_decay · (1 - α·RotScore)) |
+| `cauterizedDecayConstant(maxConnections:)` | λ × 2.5 when requiresCauterization |
+| `lighthouseNeedsResync(maxConnections:at:)` | true when 0.4 ≤ W_final < 0.6 |
 
-### Fault Injection
+### SynapseReferee (v0.3)
 
-`faultProbability` (default `0.0`, env: `CONTEXT_SYNAPSE_FAULT_PROB`) controls three corruption modes applied during `computeRegionSimilarities`:
-- Gaussian noise addition
-- Zeroing a contiguous slice
-- Scaling down a random subset of elements
-
-Intentional design: surfaces how similarity degrades under partial data loss.
-
----
-
-## File System Layout (Runtime State)
-
-```
-~/Library/Application Support/ContextSynapse/
-  users/
-    default/
-      profile.json    # UserProfile JSON
-      config.json     # Weights (persisted Bayesian state)
-      regions.json    # [Region] array
-      logs/
-        run-<iso>.json  # RunLog per invocation
-    <other-users>/
-      ...
-```
-
-User identifiers are sanitized (strips `/`, `\`, `:`, `.`) to prevent directory traversal.
+| Method | Purpose |
+|--------|---------|
+| `FunctionalReferee.evaluateSaliency(for:content:in:)` | Silent saliency score |
+| `FunctionalReferee.shouldForkToShadowContext(state:)` | true when rotScore > 0.5 |
+| `AbrasiveReferee.evaluateSaliency(for:content:in:)` | Kicks to 0.1 on rot+drift |
+| `AbrasiveReferee.buildIntervention(...)` | Builds ContextIntervention for UI |
+| `RefereeConfig.makeReferee(lighthouseSaliencyAtStart:)` | Factory from config |
 
 ---
 
-## CLI (`contextsynapse`)
+## Architecture Decision Records
 
-### Basic usage
+### ADR-001: Affect Vector — ASYNC
+Lighthouse anchors on confirmed user choice only. Never passive inference. Consent model is non-negotiable.
 
-```bash
-contextsynapse "<query>" [flags]
-```
+### ADR-002: Operational Context Layer — PERMANENT BOUNDARY
+The Referee does not model collapse. Only distraction. Surveillance risk + shame amplification make this permanently out of scope for any deployment context, especially Secure Pride.
 
-Pipe input is also supported: `echo "query" | contextsynapse`.
+### ADR-003: Referee Default — FUNCTIONAL
+AbrasiveReferee is opt-in: `referee.mode = "abrasive"` in config. User preference noted but not made default. ADR-002 applies.
 
-Output format: `[Tone] [Intent] [Domain]: <query>`
-
-### All flags
-
-| Flag | Argument | Description |
-|------|----------|-------------|
-| `--user` | `<id>` | Select user namespace (default: `default`) |
-| `--app` | `<name>` | Active app trigger key, e.g. `Mail`, `Notes` |
-| `--focus` | `<mode>` | Focus mode trigger key, e.g. `DoNotDisturb` |
-| `--time` | `HH:MM` | Override time bucket (morning/afternoon/evening) |
-| `--intent` | `<name>` | Force a specific intent (skip stochastic pick) |
-| `--tone` | `<name>` | Force a specific tone |
-| `--domain` | `<name>` | Force a specific domain |
-| `--feedback` | `good\|bad\|yes\|no` | Apply Bayesian feedback after printing the prompt |
-| `--fault-prob` | `0.0–1.0` | Override fault injection probability for this run |
-| `--export` | `<file.json>` | Export full state; cannot combine with `--import` |
-| `--import` | `<file.json>` | Import state; add `--merge` to average priors instead of replace |
-| `--metadata` | `key=value` | Attach metadata to an export (repeatable) |
-
-Time buckets: `05:00–11:59` → `time.morning`, `12:00–16:59` → `time.afternoon`, else `time.evening`.
+### ADR-004: Observability — LOCAL ONLY
+RunLog extended with decay/rot snapshots. No cloud dependency added. CDL is complementary — not a dependency.
 
 ---
 
-## SwiftUI GUI (`ContextSynapseApp`)
+## Bayesian Update Flow
 
-**`AppViewModel`** is the single `ObservableObject` bridging `SynapseCore` to the UI:
-- `weights`, `regions`, `similarityMatrix`, `nearestMap` — published state
-- `assemblePrompt()` — calls `core.weightedPick` then `core.assemblePrompt`, logs the run
-- `setFaultEnabled(_:)` / `setFaultProbability(_:)` — toggle fault injection, restores last non-zero probability
-- `disintegrateSkyPlates()` — calls `maybeInjectFaults` on the current regions and recomputes
-- `saveConfig()` / `resetDefaults()` / `applyFeedback(...)` — delegate to core
-
-**`HeatmapView`** — `Canvas`-based NxN heatmap. Color ramps from blue (low similarity) through orange/yellow (high). Tap to highlight a cell and show the pair + score in an overlay.
-
-**`WeightGridView`** — Editable sliders for each weight entry in the `Weights` struct.
+1. Query assembled stochastically (intent/tone/domain picked via `weightedPick`)
+2. User provides `--feedback good|bad`
+3. `applyFeedbackUpdate` increments `alpha` (positive) or `beta` (negative)
+4. `updateWeightsFromPriors` maps `probability()` → [0.1, 3.0]
+5. Converges over time toward preferred dimensions
 
 ---
 
-## AI Platform Integration
+## Decay + Rot Flow
 
-`SynapseCore` includes `OpenAIClient` and `AnthropicClient` implementing `AIClient`:
-
-```swift
-protocol AIClient {
-    func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void)
-}
-```
-
-Both share `BaseHTTPAIClient` for HTTP request/response handling (30s timeout, no caching, HTTP status validation). **Not wired into the CLI** — intended for embedders building on top of `SynapseCore` as a library.
+1. Each user interaction → `SynapseWeightState.record(event)`
+2. Periodic tick → `recomputeRotScore(content, lighthouse)`
+3. `finalWeight()` applies floor (lighthouse) or rot penalty (non-lighthouse)
+4. `SynapseReferee.evaluateSaliency()` combines velocity + connectivity + decay
+5. AbrasiveReferee: if rot + drift > threshold → kick to 0.1 + emit ContextIntervention
 
 ---
 
-## Build & Test
+## Hard Invariants (enforced by tests)
 
-```bash
-# Build all targets (release)
-swift build -c release
-
-# Build CLI only
-swift build -c release --product contextsynapse
-
-# Run all tests in parallel
-swift test --parallel
-
-# Run with fault injection via env
-CONTEXT_SYNAPSE_FAULT_PROB=0.4 .build/debug/contextsynapse "test query"
-```
-
-The test suite (`BayesianConvergenceTests`) uses unique `folderName` UUIDs to isolate each test's state. Tests requiring the CLI binary call `ensureCLIExecutable()` which skips via `XCTSkip` if `.build/debug/contextsynapse` is not present — run `swift build` before `swift test` for full coverage.
-
----
-
-## CI / CD
-
-**`ci.yml`** — runs on `pull_request` and `push` to `main`, macOS 15:
-1. Verifies required files exist: `.gitignore`, `Package.swift`, `README.md`, `SECURITY.md`, `INSTALL.md`, `LICENSE`, `default_config.json`
-2. Checks no `.build/`, `.swiftpm/`, or IDE artifacts are tracked
-3. Rejects tag refs (tags are release-only)
-4. `swift package resolve` → `swift package dump-package` → `swift build -c release` → `swift test --parallel`
-5. Optionally builds Xcode app scheme if a `.xcworkspace` or `.xcodeproj` is present
-
-**`release.yml`** — triggered by `v*` tags or `workflow_dispatch` (dry-run only):
-- Production: verifies tag points to `main`, builds CLI + optional signed/notarized app, generates SPDX SBOM, publishes GitHub Release
-- Dry-run: builds unsigned artifacts, uploads as workflow artifacts only
-- Signing secrets: `APPLE_DEVELOPER_ID_APP_CERT_BASE64`, `APPLE_CERT_PASSWORD`, `APPLE_KEYCHAIN_PASSWORD`, `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, `APPLE_NOTARY_PRIVATE_KEY_BASE64`
-
-**`codeql.yml`** — CodeQL static analysis on Swift.
-
-**`dependabot.yml`** — GitHub Actions dependency updates.
+- Lighthouse `finalWeight` ≥ `DecayConstants.lighthouseFloor` (0.4) at all times
+- `requiresCauterization` iff `rotScore` ≥ 0.82
+- `cauterizedDecayConstant` = normal × 2.5 when flagged
+- Lighthouse `rotScore` is always 0.0
+- `StructuralHeuristicDistance.distance()` output always in [0.0, 1.0]
+- Distance is symmetric: d(a,b) == d(b,a)
 
 ---
 
 ## Design Constraints (Non-Negotiable)
 
-- **Local-first**: no required network calls; AI clients are opt-in library extensions only
-- **Interpretability**: all weights and priors are stored as plain JSON, always human-readable
-- **Fragility is intentional**: fault injection is a first-class feature, not a bug; do not "fix" it
-- **Prompting as cognition**: the assembled prompt encodes context metadata, not just string concatenation
-- **Determinism**: core algorithms are deterministic given fixed weights; stochastic paths (`weightedPick`, fault injection) use `Double.random` and are explicitly labeled
+- **Local-first**: no required network calls
+- **Interpretability**: all weights, priors, constants in plain JSON
+- **Fragility is intentional**: do not "fix" fault injection
+- **Consent-first**: no passive inference of user state (ADR-001, ADR-002)
+- **Determinism**: stochastic paths are explicitly labeled
+- **No external dependencies**: keep Package.swift dependency-free
 
 ---
 
 ## Coding Conventions
 
-- No external dependencies — keep `Package.swift` dependency-free
-- Atomic writes (`options: .atomic`) for all state persistence
-- User input sanitization at the `SynapseCore.init` boundary (directory traversal prevention)
-- Errors to stderr via `StandardErrorStream`; stdout is reserved for machine-readable output (prompt string)
-- Tests use unique folder names (`UUID().uuidString`) so they never share state
-- `RegionModel.swift` in the GUI target duplicates `canonicalVector` — this is a deliberate extension separation, not a bug
+- Atomic writes (`options: .atomic`) for all persistence
+- User input sanitized at `SynapseCore.init` boundary
+- Errors to stderr; stdout reserved for machine-readable output
+- Test isolation via unique `UUID().uuidString` folder names
+- `DecayConstants` is the single source of truth — never scatter magic numbers
+- `SemanticDistanceStrategy` is a protocol — swap implementations without touching rot formula
 
 ---
 
 ## Repo
 
-- GitHub: `mazze93/context-synapse`
+- GitHub: [mazze93/context-synapse](https://github.com/mazze93/context-synapse)
 - Default branch: `main`
-- Releases triggered by pushing `v*` tags that are ancestors of `main`
+- Releases triggered by `v*` tags on `main`
