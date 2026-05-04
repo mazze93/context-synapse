@@ -96,225 +96,225 @@ public struct RavenRenderer {
 
         case .dormant:
             let frames = [
-            """
-            \(color)      .
-                 \(accent)◦\(color)▓▓◦
-                  ███
-                  ▓█▓
-                   ▓\(ANSI.reset)
-            """,
-            """
-            \(color)
-                 \(accent)◦\(color)▓▓◦
-                  ███
-                  ▓█▓   .
-                   ▓\(ANSI.reset)
-            """]
+             """
+             \(color)      .
+                  \(accent)◦\(color)▓▓◦
+                   ███
+                   ▓█▓
+                    ▓\(ANSI.reset)
+             """,
+             """
+             \(color)
+                  \(accent)◦\(color)▓▓◦
+                   ███
+                   ▓█▓   .
+                    ▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .perched:
             let frames = [
-            """
-            \(color)    \(accent)◈\(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║
-               ╱▓███▓╲
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║  \(accent)·\(color)
-               ╱▓███▓╲
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║
-               ╱▓███▓╲  \(accent)◦\(color)
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """]
+             """
+             \(color)    \(accent)◈\(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║
+                ╱▓███▓╲
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║  \(accent)·\(color)
+                ╱▓███▓╲
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║
+                ╱▓███▓╲  \(accent)◦\(color)
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .watching:
             let frames = [
-            """
-            \(color)    \(accent)◈\(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║
-               ╱▓███▓╲\(accent)~\(color)
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)   \(accent)◈\(color)
-                ╔▓██▓╗
-               /█\(accent)◉\(color)█╗
-              ╱▓████▓╲
-             ╱▓▓\(accent)~·:·~\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)    \(accent)◈\(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║
-               ╱▓███▓╲
-              ╱▓▓\(accent)~·:·~\(color)▓▓╲\(accent)~\(color)
-                  ▓▓\(ANSI.reset)
-            """]
+             """
+             \(color)    \(accent)◈\(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║
+                ╱▓███▓╲\(accent)~\(color)
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)   \(accent)◈\(color)
+                 ╔▓██▓╗
+                /█\(accent)◉\(color)█╗
+               ╱▓████▓╲
+              ╱▓▓\(accent)~·:·~\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)    \(accent)◈\(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║
+                ╱▓███▓╲
+               ╱▓▓\(accent)~·:·~\(color)▓▓╲\(accent)~\(color)
+                   ▓▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .stirring:
             let frames = [
-            """
-            \(color)  \(accent)◈ ◦\(color)
-               ╔▓███▓╗
-              /█\(accent)◉\(color)██╗\(accent)≋\(color)
-             ╱▓█████▓╲
-            ╱▓▓\(accent){·:·}\(color)▓▓▓╲
-                 ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)  \(accent)◦ ◈\(color)
-               ╔▓███▓╗
-              /█\(accent)◉\(color)██╗
-             ╱▓█████▓╲\(accent)≋\(color)
-            ╱▓▓\(accent)[·:·]\(color)▓▓▓╲
-                 ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)  \(accent)◈\(color)
-               ╔▓███▓╗\(accent)≋\(color)
-              /█\(accent)◉\(color)██╗
-             ╱▓█████▓╲
-            ╱▓▓\(accent){·:·}\(color)▓▓▓╲
-                 ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)  \(accent)◦ ◦\(color)
-               ╔▓███▓╗
-             \(accent)≋\(color)/█\(accent)◉\(color)██╗
-             ╱▓█████▓╲
-            ╱▓▓\(accent)[·:·]\(color)▓▓▓╲\(accent)≋\(color)
-                 ▓▓▓\(ANSI.reset)
-            """]
+             """
+             \(color)  \(accent)◈ ◦\(color)
+                ╔▓███▓╗
+               /█\(accent)◉\(color)██╗\(accent)≋\(color)
+              ╱▓█████▓╲
+             ╱▓▓\(accent){·:·}\(color)▓▓▓╲
+                  ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)  \(accent)◦ ◈\(color)
+                ╔▓███▓╗
+               /█\(accent)◉\(color)██╗
+              ╱▓█████▓╲\(accent)≋\(color)
+             ╱▓▓\(accent)[·:·]\(color)▓▓▓╲
+                  ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)  \(accent)◈\(color)
+                ╔▓███▓╗\(accent)≋\(color)
+               /█\(accent)◉\(color)██╗
+              ╱▓█████▓╲
+             ╱▓▓\(accent){·:·}\(color)▓▓▓╲
+                  ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)  \(accent)◦ ◦\(color)
+                ╔▓███▓╗
+              \(accent)≋\(color)/█\(accent)◉\(color)██╗
+              ╱▓█████▓╲
+             ╱▓▓\(accent)[·:·]\(color)▓▓▓╲\(accent)≋\(color)
+                  ▓▓▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .alarmed:
             let frames = [
-            """
-            \(color)\(ANSI.bold)    \(accent)◈◈\(color)
-              ╔══▓███▓══╗
-             /██\(accent)◉\(color)███╗\(accent)!\(color)
-            ╱████████████╲
-           ╱▓▓\(accent)!·:·!\(color)▓▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)\(ANSI.bold)   \(accent)◈ ◈\(color)
-              ╔══▓███▓══╗\(accent)!\(color)
-             /██\(accent)◉\(color)███╗
-            ╱████████████╲
-           ╱▓▓\(accent)!·:·!\(color)▓▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)\(ANSI.bold)    \(accent)◈◈\(color)\(ANSI.bold)
-              ╔══▓███▓══╗
-            \(accent)!\(color)/██\(accent)◉\(color)███╗
-            ╱████████████╲\(accent)!\(color)
-           ╱▓▓\(accent)!·:·!\(color)▓▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """]
+             """
+             \(color)\(ANSI.bold)    \(accent)◈◈\(color)
+               ╔══▓███▓══╗
+              /██\(accent)◉\(color)███╗\(accent)!\(color)
+             ╱████████████╲
+             ╱▓▓\(accent)!·:·!\(color)▓▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)\(ANSI.bold)   \(accent)◈ ◈\(color)
+               ╔══▓███▓══╗\(accent)!\(color)
+              /██\(accent)◉\(color)███╗
+             ╱████████████╲
+             ╱▓▓\(accent)!·:·!\(color)▓▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)\(ANSI.bold)    \(accent)◈◈\(color)\(ANSI.bold)
+               ╔══▓███▓══╗
+             \(accent)!\(color)/██\(accent)◉\(color)███╗
+             ╱████████████╲\(accent)!\(color)
+             ╱▓▓\(accent)!·:·!\(color)▓▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .cauterize:
             let flash = frameIndex % 2 == 0 ? ANSI.red : ANSI.white
             let frames = [
-            """
-            \(flash)\(ANSI.bold)  ◈ CAW ◈
-            ╔═══▓████▓═══╗
-            ║███\(accent)◉\(flash)████║ !!!
-            ╠═══════════╣
-            ╱▓▓▓!·:·!▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(flash)\(ANSI.bold)◈◈ CAW CAW ◈◈
-            ╔═══▓████▓═══╗
-            ╠███\(accent)◉\(flash)████╣
-            ╠═══════════╣ !!!
-            ╱▓▓▓!·:·!▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(flash)\(ANSI.bold)  ◈ CAW ◈
-            ╔═══▓████▓═══╗ !!!
-            ╠███\(accent)◉\(flash)████╣
-            ╠═══════════╣
-            ╱▓▓▓!·:·!▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """,
-            """
-            \(flash)\(ANSI.bold)◈◈◈ CAW ◈◈◈
-            ╔═══▓████▓═══╗
-            ║███\(accent)◉\(flash)████║
-            ╠═══════════╣ !!!
-            ╱▓▓▓!·:·!▓▓▓▓╲
-                  ▓▓▓\(ANSI.reset)
-            """]
+             """
+             \(flash)\(ANSI.bold)  ◈ CAW ◈
+             ╔═══▓████▓═══╗
+             ║███\(accent)◉\(flash)████║ !!!
+             ╠═══════════╣
+             ╱▓▓▓!·:·!▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(flash)\(ANSI.bold)◈◈ CAW CAW ◈◈
+             ╔═══▓████▓═══╗
+             ╠███\(accent)◉\(flash)████╣
+             ╠═══════════╣ !!!
+             ╱▓▓▓!·:·!▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(flash)\(ANSI.bold)  ◈ CAW ◈
+             ╔═══▓████▓═══╗ !!!
+             ╠███\(accent)◉\(flash)████╣
+             ╠═══════════╣
+             ╱▓▓▓!·:·!▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """,
+             """
+             \(flash)\(ANSI.bold)◈◈◈ CAW ◈◈◈
+             ╔═══▓████▓═══╗
+             ║███\(accent)◉\(flash)████║
+             ╠═══════════╣ !!!
+             ╱▓▓▓!·:·!▓▓▓▓╲
+                   ▓▓▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .resync:
             let frames = [
-            """
-            \(color)\(ANSI.bold)    \(accent)◈\(color)
-                ╔▓██▓╗  \(accent)↩\(color)
-                ║█\(accent)◉\(color)█║
-               ╱▓███▓╲
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║  \(accent)◦\(color)
-               ╱▓███▓╲
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """,
-            """
-            \(color)    \(accent)◈\(color)
-                ╔▓██▓╗
-                ║█\(accent)◉\(color)█║
-               ╱▓███▓╲
-              ╱▓▓\(accent)·:·\(color)▓▓╲
-                  ▓▓\(ANSI.reset)
-            """]
+             """
+             \(color)\(ANSI.bold)    \(accent)◈\(color)
+                 ╔▓██▓╗  \(accent)↩\(color)
+                 ║█\(accent)◉\(color)█║
+                ╱▓███▓╲
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║  \(accent)◦\(color)
+                ╱▓███▓╲
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """,
+             """
+             \(color)    \(accent)◈\(color)
+                 ╔▓██▓╗
+                 ║█\(accent)◉\(color)█║
+                ╱▓███▓╲
+               ╱▓▓\(accent)·:·\(color)▓▓╲
+                   ▓▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
 
         case .export:
             let frames = [
-            """
-            \(ANSI.dimPurple)\(ANSI.dim)
-                 ▓▓▓
-                ▓███▓
-                ▓███▓
-                 ▓▓▓
-                  ▓\(ANSI.reset)
-            """,
-            """
-            \(ANSI.dimPurple)\(ANSI.dim)
-                  ▓▓
-                 ████
-                 ████
-                  ▓▓
-                  ▓\(ANSI.reset)
-            """]
+             """
+             \(ANSI.dimPurple)\(ANSI.dim)
+                  ▓▓▓
+                 ▓███▓
+                 ▓███▓
+                  ▓▓▓
+                   ▓\(ANSI.reset)
+             """,
+             """
+             \(ANSI.dimPurple)\(ANSI.dim)
+                   ▓▓
+                  ████
+                  ████
+                   ▓▓
+                   ▓\(ANSI.reset)
+             """]
             return frames[frameIndex % frames.count]
         }
     }
