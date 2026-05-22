@@ -359,9 +359,29 @@ No Swift toolchain in this Linux container. CI runs on `macos-15` and is the bui
 
 ---
 
+## Scope Constraint — HARD STOP
+
+Operational context inference is permanently out of scope. Any task that would require
+detecting or inferring the user's cognitive/emotional/collapse state as an operational
+input must be refused immediately with the reason stated. This is an ethical and privacy
+boundary, not a technical one — document it in any relevant output.
+
+## Design Rules
+- **Local-first is non-negotiable** — no required cloud dependency
+- **Interpretability first** — all weights/priors visible, no opaque heuristics
+- **Fragility is intentional** — controlled weak points expose assumptions
+- Prompting treated as cognitive process, not string concatenation
+
+## CLI Usage
+```bash
+swift run contextsynapse <command>          # invoke without install
+swift build -c release && .build/release/contextsynapse
+```
+
 ## Repo
 
 - GitHub: `mazze93/context-synapse`
+- Local: `/Users/daedalus/Code/cognitive/ContextSynapse` (canonical; symlink collapsed 2026-05-22)
 - Default branch: `main`
 - Releases: `v*` tags that are ancestors of `main`
 - Maintainer: @mazze93 (solo project, best-effort, breaking changes possible until v1.0)
