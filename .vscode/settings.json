@@ -1,0 +1,16 @@
+{
+  "// praxis-mode": "Security \u2014 ContextSynapse",
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#060620",
+    "titleBar.inactiveBackground": "#060620",
+    "titleBar.activeForeground": "#f5ede0",
+    "titleBar.inactiveForeground": "#f5ede0aa",
+    "titleBar.border": "#060620",
+    "activityBar.background": "#060620",
+    "activityBar.foreground": "#f5ede0",
+    "activityBar.inactiveForeground": "#f5ede0aa",
+    "activityBar.border": "#060620",
+    "statusBar.background": "#060620",
+    "statusBar.foreground": "#f5ede0"
+  }
+}
