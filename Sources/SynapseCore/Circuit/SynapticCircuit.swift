@@ -107,7 +107,10 @@ public actor SynapticCircuit {
         var predictions:          [String: Double] = [:]
         var connectivityFactors:  [String: Double] = [:]
 
-        for (id, var node) in nodes {
+        // Snapshot nodes before iterating to avoid mutating the dictionary
+        // while the for-in loop holds a read access (Law of Exclusivity).
+        let nodeSnapshot = nodes
+        for (id, var node) in nodeSnapshot {
             let connectivity    = connectivityCache[id] ?? 0.0
             let incomingBias    = computeIncomingInfluence(for: id)
 
