@@ -95,11 +95,12 @@ After a few sessions of consistent feedback, preferred dimensions appear more of
 import SynapseCore
 
 let core = SynapseCore(user: "default")
+let weights = core.loadOrCreateDefaultWeights()
 
 // Stochastic assembly
-let tone   = core.weightedPick(core.weights.tones)   ?? "Concise"
-let intent = core.weightedPick(core.weights.intents) ?? "Summarize"
-let domain = core.weightedPick(core.weights.domains) ?? "Work"
+let tone   = core.weightedPick(weights.tones)   ?? "Concise"
+let intent = core.weightedPick(weights.intents) ?? "Summarize"
+let domain = core.weightedPick(weights.domains) ?? "Work"
 let prompt = core.assemblePrompt(tone: tone, intent: intent, domain: domain, query: "Explain this")
 
 // Feedback update
@@ -110,7 +111,7 @@ let regions = core.loadOrSeedRegions()
 let (matrix, nearest) = core.computeRegionSimilarities(regionsIn: regions)
 ```
 
-`SynapseCore` is a pure Swift library with no external dependencies. The optional `OpenAIClient` and `AnthropicClient` are HTTP adapters for embedders; the CLI and GUI do not require them.
+`SynapseCore` is a pure Swift library with no external dependencies. The optional `OpenAIClient` and `AnthropicClient` are HTTP adapters that send an assembled prompt to those chat-completion APIs; the CLI and GUI do not require them.
 
 ## Architecture
 
