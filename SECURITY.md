@@ -148,9 +148,9 @@ I encourage security research that helps improve the safety and security of thes
 - Run security scanners locally before submitting pull requests
 - Sign commits with GPG or SSH keys when possible
 
-### Security Improvements (v1.1)
+### Security Improvements
 
-As of the v1.1 release, ContextSynapse includes the following security enhancements:
+ContextSynapse includes the following security enhancements (see [`CHANGELOG.md`](CHANGELOG.md)):
 
 #### Input Validation
 - **User ID Sanitization**: All user identifiers are sanitized to prevent directory traversal attacks (e.g., `../` or absolute paths)
