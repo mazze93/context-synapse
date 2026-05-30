@@ -35,7 +35,7 @@ cp .build/release/context_synapse /usr/local/bin/context_synapse
 
 ## Notes
 - If you change weight keys (add/remove intents/tones/domains), regenerate region vectors using canonicalVector helper or reset regions to defaults.
-- See `docs/REVIEW.md` for a two-pass review and known issues.
+- See `ROADMAP.md` (known issues) and `CHANGELOG.md` (history) in the repository root.
 
 
 ## Tests

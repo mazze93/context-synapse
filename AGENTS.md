@@ -1,27 +1,36 @@
-# ContextSynapse — Codex Context
+# AGENTS.md
 
-Local-first Bayesian prompt orchestration engine. Status: **experimental/research-grade**.
-Not a consumer product — built for neurodivergent developers exploring human-machine context negotiation.
+Context for coding agents (Codex, Claude, and others) working in this repository.
 
-## Stack
-- **Language**: Swift 5.8+, macOS 13+
-- **Components**: `SynapseCore` (Bayesian engine), CLI (`contextsynapse`), SwiftUI GUI (`ContextSynapseApp`)
-- **Build**: `swift build -c release` | **Test**: `swift test`
-- **Config**: `default_config.json` (Bayesian priors, fault_probability)
-- **State**: JSON persistence (export/import via CLI)
+**This file is a pointer.** The authoritative, detailed agent context lives in
+[`CLAUDE.md`](CLAUDE.md) — read it before making changes. It carries the current
+sprint state, full architecture map, build/test commands, and the
+non-negotiable design constraints.
 
-## Key Architecture
-- `SynapseCore.swift` — core engine: `applyFeedbackUpdate()`, `computeRegionSimilarities()`, `loadOrCreateDefaultWeights()`
-- `ContextRegion` — weighted regions tracking intent, domain, tone
-- Cosine similarity for context matching
-- Deterministic + testable; intentional fault injection for resilience
+## Quick facts
 
-## Design Rules
-- **Local-first is non-negotiable** — no required cloud dependency
-- **Interpretability first** — all weights/priors visible, no opaque heuristics
-- **Fragility is intentional** — controlled weak points expose assumptions
-- Prompting treated as cognitive process, not string concatenation
+- **Project:** Context Synapse — a local-first Bayesian prompt orchestration
+  engine. Experimental / research-grade, not a consumer product.
+- **Language / platform:** Swift 5.8+, macOS 13+. No external dependencies.
+- **Targets:** `SynapseCore` (library), `contextsynapse` (CLI),
+  `ContextSynapseApp` (SwiftUI app). Tests in `Tests/`.
+- **Build:** `swift build -c release`
+- **Test:** `swift build && swift test --parallel` — build first; some tests
+  exec the CLI binary.
+- **State:** plain JSON under `~/Library/Application Support/ContextSynapse/`.
+- **Core types:** `SynapseCore`, `Weights`/`Priors`/`Prior`, `Region`,
+  `SynapseWeightState`, `SynapticCircuit`. (There is no `ContextRegion` type —
+  named embedding vectors are `Region`.)
 
-## Repo
-- GitHub: `mazze93/context-synapse`
-- Local: `/Users/daedalus/Code/ContextSynapse`
+## Non-negotiable design rules
+
+- **Local-first:** no required network calls; the AI clients are opt-in.
+- **Interpretability:** all weights, priors, and similarity scores are
+  human-readable JSON — nothing hidden.
+- **Fragility is intentional:** fault injection is a first-class feature, not a
+  bug to fix.
+- **No operational/affective-state modelling** (ADR-002, referee track) — a
+  permanent design boundary, not a roadmap gap.
+
+See [`ROADMAP.md`](ROADMAP.md) for the version plan, [`CHANGELOG.md`](CHANGELOG.md)
+for history, and [`docs/adr/`](docs/adr/) for architecture decisions.
