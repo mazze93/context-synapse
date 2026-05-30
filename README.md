@@ -1,330 +1,175 @@
 # Context Synapse
-![Swift](https://img.shields.io/badge/Swift-5.8-orange)
+
+![Swift](https://img.shields.io/badge/Swift-5.8%2B-orange)
 ![macOS](https://img.shields.io/badge/macOS-13%2B-blue)
-![Local--First](https://img.shields.io/badge/Architecture-Local--First-success)
-![Bayesian](https://img.shields.io/badge/Learning-Bayesian-purple)
-![Status](https://img.shields.io/badge/Status-Experimental-critical)
-![Deterministic](https://img.shields.io/badge/Deterministic-Yes-lightgrey)
-![Resilience](https://img.shields.io/badge/Resilience-Tested-green)
+![Status](https://img.shields.io/badge/status-v0.3--experimental-yellow)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![Local-First](https://img.shields.io/badge/architecture-local--first-success)
+![No Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 
-![Context Synapse Social Preview](.github/social-preview.png)
+A local-first Bayesian prompt engine for macOS. Give it a query; it picks an intent, tone, and domain from weights shaped by your feedback and context signals. All state is plain JSON. Nothing leaves your machine.
 
-ContextSynapse is a local-first adaptive prompt orchestration engine that treats context as a living system instead of a static prefix.
+Built for neurodivergent developers who need structured, adaptive prompting without cloud lock-in or opaque heuristics.
 
-It combines Bayesian learning, contextual matrices, and intentional fault injection to assemble prompts based on intent, tone, domain, region, and environment. The goal is resilient adaptation under uncertainty while remaining inspectable and testable.
+## Status
 
-Built in Swift as a CLI + macOS app + App-Intent-ready core, ContextSynapse is aimed at teams exploring human-machine interaction with explicit control over behavior and failure modes.
+**v0.3.0-decay — experimental/research-grade.** Maintained by one person. The core Bayesian architecture is stable; the API is not frozen before v1.0. See [Known Issues](#known-issues) and [ROADMAP.md](ROADMAP.md) before building integrations on top of this.
 
-## Why this exists
-Most prompt systems assume perfect inputs, stable context, and static rules.
+## What it does
 
-ContextSynapse assumes the opposite:
-- Context changes continuously.
-- Signals can be missing or degraded.
-- Learning must remain visible and reversible.
+```bash
+contextsynapse "Summarize this document"
+# → [Concise] [Summarize] [Work]: Summarize this document
+```
 
-## Key features
-- Bayesian weighting that adapts intent, tone, and domain priors over time.
-- Contextual matrix engine that blends triggers, priors, and live signals.
-- Regional similarity analysis with cosine-based proximity.
-- Intentional fragility and fault injection for resilience testing.
-- Deterministic and testable behavior under controlled conditions.
-- Local-first architecture with no required cloud dependency.
+ContextSynapse holds Beta-distribution priors for three dimensions:
 
-## Philosophy
-ContextSynapse treats prompting as a cognitive process, not string concatenation.
+| Dimension | Defaults |
+|-----------|---------|
+| Intents | Summarize, Create, Analyze, Brainstorm, ActionableSteps |
+| Tones | Concise, Technical, Casual, Persuasive, Creative |
+| Domains | Work, Personal, GameDesign, Marketing, Writing |
 
-Context is negotiated, reinforced, and revised over time.
+Each run it:
+1. Applies **contextual triggers** — active app, time-of-day, focus mode — to boost relevant dimensions.
+2. Picks stochastically from weighted distributions, assembles `[Tone] [Intent] [Domain]: query`.
+3. On `--feedback good|bad`, updates the Beta priors so the next session reflects what worked.
 
-## GitHub social preview
-To make repository link shares use the branded card:
-1. Open repository `Settings`.
-2. Open `General`.
-3. In `Social preview`, upload `.github/social-preview.png`.
+All weights and priors live in `~/Library/Application Support/ContextSynapse/users/default/config.json` — a plain JSON file you can read, edit, or reset at any time.
 
-## Design Principles
-
-ContextSynapse is not a prompt tool.
-It is an experiment in how humans and machines negotiate meaning under uncertainty.
-
-### 1. Context is probabilistic, not deterministic
-Intent, tone, and domain are not fixed states.  
-They are inferred, reinforced, and revised over time using Bayesian priors.
-
-The system learns by updating beliefs, not overwriting rules.
-
----
-
-### 2. Systems should survive partial failure
-ContextSynapse includes deliberate fault injection.
-Vectors degrade. Signals disappear. Assumptions fracture.
-
-The system is expected to continue producing *useful* output even when inputs are incomplete or corrupted.
-
-Failure is not an error state—it is a test condition.
-
----
-
-### 3. Interpretability is a first-class feature
-All weights, priors, and similarity matrices are visible.
-Nothing is hidden behind opaque heuristics.
-
-If the system adapts, you can see *why*.
-
----
-
-### 4. Local-first is non-negotiable
-All computation, learning, and persistence happen locally.
-
-This preserves:
-- privacy
-- determinism
-- debuggability
-- long-term stability
-
-Cloud integration is optional. Dependency is not.
-
----
-
-### 5. Prompting is a cognitive process
-Prompt construction is treated as a dynamic interaction between:
-- intention
-- environment
-- history
-- uncertainty
-
-Strings are outputs, not the system.
-
----
-
-### 6. Fragility is intentional
-ContextSynapse is designed with controlled weak points.
-These “breaks” expose assumptions and prevent false confidence.
-
-A system that never breaks is a system you don’t understand.
-
-⸻
-
-Status
-
-Actively evolving.
-Designed as a research-grade scaffold, not a polished consumer product.
-
-## Architecture
-
-### Core Components
-
-**SynapseCore**: Main framework implementing:
-- `ContextRegion`: Weighted regions with intent, domain, and tone tracking
-- `SynapseCore`: Bayesian feedback engine with prior/posterior management
-- `applyFeedbackUpdate()`: Update weights based on user feedback
-- `computeRegionSimilarities()`: Cosine similarity for context matching
-- `loadOrCreateDefaultWeights()`: Initialize or restore weight state
-
-**CLI Tool** (`contextsynapse`):
-- Argument parsing for feedback operations
-- Bayesian weight updates via command-line
-- JSON state persistence
-
-**GUI Application** (`ContextSynapseApp`):
-- Interactive weight grid visualization
-- Real-time heatmap display
-- Keyboard shortcuts for rapid feedback
-- macOS-native SwiftUI interface
-
-## Installation
+## Quick start
 
 ### Prerequisites
 
-- macOS 12.0+
-- Xcode 14.0+ (for building)
-- Swift 5.7+
-
-### Building from Source
+- macOS 13 (Ventura) or later
+- Swift 5.8+ (ships with Xcode 15+, or install the Swift toolchain standalone)
 
 ```bash
-# Clone the repository
 git clone https://github.com/mazze93/context-synapse.git
 cd context-synapse
-
-# Build the project
 swift build -c release
-
-# Run the CLI
-.build/release/contextsynapse --help
-
-# Or build and run the GUI app in Xcode
-open Package.swift
+.build/release/contextsynapse "Draft a status update"
 ```
 
-See [INSTALL.md](INSTALL.md) for detailed build instructions.
+See [INSTALL.md](INSTALL.md) for the full build guide, optional system-wide install, GUI app setup, and troubleshooting.
 
-## Quick Start
-
-### CLI Usage
+## CLI usage
 
 ```bash
-# Apply positive feedback to "Technical" intent in "Work" domain
-contextsynapse --feedback positive --intent Technical --domain Work
+# Basic — stochastic intent/tone/domain from current weights
+contextsynapse "your query"
 
-# Apply negative feedback to "Casual" tone
-contextsynapse --feedback negative --tone Casual
+# Force specific dimensions
+contextsynapse "your query" --intent Create --tone Technical --domain Work
 
-# Export current state to a file
-contextsynapse --export backup.json --metadata user=johndoe --metadata purpose=backup
+# Apply feedback (shifts priors toward this session's choices)
+contextsynapse "your query" --feedback good
+contextsynapse "your query" --feedback bad
 
-# Import state from a file (replace mode)
-contextsynapse --import backup.json
+# Contextual triggers
+contextsynapse "your query" --app Mail --focus DoNotDisturb --time 09:00
 
-# Import state with merge (average priors with existing)
-contextsynapse --import backup.json --merge
+# Multi-user namespaces
+contextsynapse "your query" --user alice
 
-# Use a specific user profile
-contextsynapse --user johndoe "Summarize this document"
+# Export / import state
+contextsynapse --export snapshot.json --metadata project=myapp
+contextsynapse --import snapshot.json           # replace state
+contextsynapse --import snapshot.json --merge   # average priors
+
+# Fault injection (resilience research)
+CONTEXT_SYNAPSE_FAULT_PROB=0.4 contextsynapse "test query"
 ```
 
-### Programmatic Usage
+Time bucketing: `05:00–11:59` → `time.morning`, `12:00–16:59` → `time.afternoon`, otherwise `time.evening`.
+
+## Bayesian learning
+
+`--feedback good` increments `alpha` on the chosen intent, tone, and domain; `--feedback bad` increments `beta`. `Prior.probability() = alpha / (alpha + beta)` climbs for dimensions you reinforce. Weights are linearly mapped to `[0.1, 3.0]` and persisted after every update.
+
+After a few sessions of consistent feedback, preferred dimensions appear more often. You can inspect or hand-edit the JSON at any time — the format is intentionally human-readable.
+
+## Programmatic usage
 
 ```swift
 import SynapseCore
 
-// Initialize core with default priors for a specific user
-let core = SynapseCore(user: "johndoe")
+let core = SynapseCore(user: "default")
+let weights = core.loadOrCreateDefaultWeights()
 
-// Apply feedback update
-core.applyFeedbackUpdate(
-    chosenIntent: "Technical",
-    chosenTone: "Formal",
-    chosenDomain: "Work",
-    positive: true
-)
+// Stochastic assembly
+let tone   = core.weightedPick(weights.tones)   ?? "Concise"
+let intent = core.weightedPick(weights.intents) ?? "Summarize"
+let domain = core.weightedPick(weights.domains) ?? "Work"
+let prompt = core.assemblePrompt(tone: tone, intent: intent, domain: domain, query: "Explain this")
 
-// Compute region similarities
+// Feedback update
+core.applyFeedbackUpdate(chosenIntent: intent, chosenTone: tone, chosenDomain: domain, positive: true)
+
+// Region similarity (NxN cosine matrix)
 let regions = core.loadOrSeedRegions()
 let (matrix, nearest) = core.computeRegionSimilarities(regionsIn: regions)
-
-// Export state
-let exportURL = URL(fileURLWithPath: "backup.json")
-core.exportState(to: exportURL, metadata: ["user": "johndoe"])
-
-// Import state
-core.importState(from: exportURL, merge: true)
-
-// List all user profiles
-let users = core.listUsers()
-for user in users {
-    print("User: \(user.displayName), Last used: \(user.lastUsedAt)")
-}
-
-// AI Integration
-let openai = OpenAIClient(apiKey: "your-api-key")
-let prompt = "[Formal] [Technical] [Work]: Explain neural networks"
-openai.sendPrompt(prompt) { result in
-    switch result {
-    case .success(let response):
-        print("AI Response: \(response)")
-    case .failure(let error):
-        print("Error: \(error)")
-    }
-}
 ```
 
-## Use Cases
+`SynapseCore` is a pure Swift library with no external dependencies. The optional `OpenAIClient` and `AnthropicClient` are HTTP adapters that send an assembled prompt to those chat-completion APIs; the CLI and GUI do not require them.
 
-- Maintaining project context across multiple coding sessions
-- Tracking decisions and rationale in long-term projects
-- Synchronizing context between different AI assistants
-- Managing multiple concurrent projects without losing context
-- Adaptive learning of user preferences over time
-- ADHD-friendly context recovery after interruptions
-- **Multi-user support:** Separate contexts for different team members or personas
-- **Export/Import:** Backup and restore context, share configurations
-- **AI Integration:** Direct integration with OpenAI and Anthropic for enhanced prompting
-
-## Project Structure
+## Architecture
 
 ```
-context-synapse/
-├── Sources/
-│   ├── SynapseCore/
-│   │   └── SynapseCore.swift      # Core Bayesian engine
-│   ├── contextsynapse/
-│   │   └── main.swift              # CLI tool
-│   └── ContextSynapseApp/          # macOS GUI
-│       ├── AppMain.swift
-│       ├── ContentView.swift
-│       ├── WeightGridView.swift
-│       ├── HeatmapView.swift
-│       └── AppShortcutsBridge.swift
-├── Tests/
-│   └── BayesianConvergenceTests.swift
-├── Package.swift
-├── default_config.json
-├── INSTALL.md
-├── REVIEW.md
-└── README.md
+SynapseCore (library — no external deps)
+├── Bayesian engine      — Beta priors, feedback update, weight interpolation [0.1, 3.0]
+├── Trigger system       — app / time / focus context boosters (multiplicative)
+├── Region similarity    — cosine NxN matrix, nearest-neighbour map, fault injection
+├── Decay layer (v0.3)   — SynapseWeightState: rot score, lighthouse floor, cauterization
+├── Referee (v0.3)       — FunctionalReferee / AbrasiveReferee context interventions
+├── Export / Import      — full state as ExportBundle JSON (versioned)
+└── AI clients           — optional OpenAI + Anthropic adapters (not wired to CLI)
+
+contextsynapse (CLI)     — thin argument parser, stdin support, all flags above
+ContextSynapseApp (GUI)  — SwiftUI: weight grid sliders, cosine heatmap, feedback UI
 ```
 
-## Configuration
+## Design principles
 
-Default Bayesian priors are stored in `default_config.json`:
+| Principle | In practice |
+|-----------|------------|
+| Context is probabilistic | Intent, tone, and domain are inferred from Bayesian priors — not hard-coded rules |
+| Interpretability is non-negotiable | Every weight, prior, and similarity score is human-readable JSON — nothing is hidden |
+| Fragility is intentional | `CONTEXT_SYNAPSE_FAULT_PROB` corrupts region vectors to test how the system degrades gracefully |
+| Local-first, always | No required network calls; cloud AI clients are opt-in library extensions only |
+| Prompting as cognition | The assembled prompt encodes intent + environment + history, not just string concatenation |
 
-```json
-{
-  "priors": {
-    "intents": {"Technical": 0.5, "Casual": 0.3, "Creative": 0.2},
-    "domains": {"Work": 0.6, "Personal": 0.3, "Learning": 0.1},
-    "tones": {"Formal": 0.4, "Friendly": 0.4, "Analytical": 0.2}
-  },
-  "fault_probability": 0.6
-}
-```
-
-## Development
-
-This project follows the "small, focused tools" philosophy. It aims to do one thing well: manage context with Bayesian learning.
-
-### Running Tests
+## Testing
 
 ```bash
-swift test
+swift build              # required for CLI-integration tests
+swift test --parallel
 ```
 
-### Code Review
+The suite (`BayesianConvergenceTests`) covers Bayesian convergence, cosine similarity, fault injection, region similarity, export/import round-trips, and weight correctness. Each test runs in a unique UUID folder — no shared state.
 
-See [REVIEW.md](REVIEW.md) for the two-pass code review process.
+## Known issues
 
-## Contributing
+| Issue | Severity | Target |
+|-------|----------|--------|
+| Silent write failures (no UI error surface in GUI) | Medium | v1.0 |
+| Unbounded prior growth (alpha/beta accumulate indefinitely) | Low | v1.0 |
+| Multi-process write collision (no file lock; single-writer assumed) | Low | v1.0 |
 
-Contributions are welcome! This project is open source and built for the community.
+See [ROADMAP.md](ROADMAP.md) for the full version plan, architecture decision log, and v0.4–v1.0 milestones.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+## Maintenance posture
+
+- **Maintainer**: [@mazze93](https://github.com/mazze93) — solo project
+- **Response time**: best-effort; no SLA
+- **Breaking changes**: possible until v1.0; pin to a tag if you are building integrations
+- **Security**: report vulnerabilities privately via [GitHub Security Advisories](https://github.com/mazze93/context-synapse/security/advisories) — see [SECURITY.md](SECURITY.md) for full disclosure policy and artifact verification
+- **Contributing**: PRs welcome. Fork → branch → tests → PR. Architectural changes need a discussion issue first — this is a HITL (Human-in-the-Loop) research project
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+MIT — see [LICENSE](LICENSE).
 
-## Author
+---
 
-Created by Mazze LeCzzare Frazer (mazze93) as part of a collection of tools designed to support neurodivergent developers and improve AI interaction workflows.
-
-## Roadmap
-
-- [x] Core Bayesian feedback engine
-- [x] CLI interface with argument parsing
-- [x] macOS GUI with SwiftUI
-- [x] JSON-based state persistence
-- [x] Cosine similarity for region matching
-- [x] Comprehensive test suite
-- [x] Multi-user support
-- [x] Export/import functionality
-- [x] Integration with popular AI platforms (OpenAI, Anthropic)
-- [ ] Cloud sync (encrypted) - *Foundation laid, needs encryption implementation*
-- [ ] Browser extension integration - *Architecture documented*
-- [ ] Advanced visualization dashboards - *Basic heatmap exists, needs metrics tracking*
-- [ ] Context versioning and history
-- [ ] Collaborative context sharing
+*Context Synapse is what AI and neurodivergent intelligence have in common: both are brilliant, distracted, and prone to losing the forest for the trees. This is the bridge.*
