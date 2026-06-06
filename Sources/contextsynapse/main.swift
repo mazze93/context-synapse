@@ -130,6 +130,7 @@ if let exportIndex {
 
     let url = URL(fileURLWithPath: outputFile)
     if core.exportState(to: url, metadata: metadata) {
+        print("Successfully exported state to: \(outputFile)")
         print("\u{001B}[2medgar · session folded → \(outputFile)\u{001B}[0m")
         exit(0)
     }
