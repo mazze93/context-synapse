@@ -5,33 +5,12 @@ Not a consumer product — built by and for a neurodivergent developer exploring
 
 ---
 
-## CURRENT STATE — START HERE
+## Where to look for current state
 
-**Version:** v0.3.0-decay (active sprint)
-**Branch model:** all work on feature branches, PRs against `main`
-
-### Open PRs
-
-| PR | Branch | Status | Contents |
-|----|--------|--------|----------|
-| #11 | `claude/repo-docs-value-trust-dLqaj` | Draft | README + INSTALL.md rewrite: real prerequisites (macOS 13+, Swift 5.8+), real CLI flags, correct config JSON, maintenance posture, SECURITY.md link |
-| #12 | `claude/circuit-bedrock-v0.3` | Draft, CI failing → **fix pushed** | Bedrock layer: SynapticCircuit actor, CircuitTypes, FaultInjectionSuite, 3 ADRs |
-
-### PR #12 CI failure — root cause and fix
-
-`SynapseCore.swift:183` defines `public struct Prior` (the existing simple Beta wrapper).
-`CircuitTypes.swift` originally also defined `public struct Prior` (the new richer type).
-Both land in the `SynapseCore` module. Duplicate type = build failure.
-
-**Fix:** Renamed the circuit-layer type to `SynapticPrior` throughout `CircuitTypes.swift`.
-The old `Prior` in `SynapseCore.swift` is untouched — it is serialized to disk in `config.json`, do not rename or move it.
-
-Verify the fix is clean: `grep -rn "^public struct Prior" Sources/SynapseCore/` should return exactly one result (`SynapseCore.swift:183`).
-
-### assemblePrompt — RESOLVED, do not reopen
-
-ROADMAP flagged this as HIGH/BUG. Verified: `main.swift:299` correctly calls
-`core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)`.
+**Version:** v0.3.0-decay (active).
+**Sprint state:** [`ROADMAP.md`](ROADMAP.md) — what's shipped, what's left, what's next.
+**Release history:** [`CHANGELOG.md`](CHANGELOG.md) — the merged v0.3 features.
+**Branch model:** feature branches, PRs against `main`. No long-lived branches.
 
 ---
 
@@ -52,43 +31,49 @@ ROADMAP flagged this as HIGH/BUG. Verified: `main.swift:299` correctly calls
 
 ```
 Package.swift
-default_config.json              # Canonical seed config (CI guardrails check requires this)
-Resources/default_config.json   # Bundled duplicate
-scripts/demo_convergence.sh      # Bayesian convergence demo
+default_config.json                # Canonical seed config (CI guardrails check requires this)
+Resources/default_config.json      # Bundled duplicate
+scripts/demo_convergence.sh        # Bayesian convergence demo
+
+AGENTS.md                          # Pointer file for other coding agents (Codex etc.) — points here
+CHANGELOG.md                       # Merged release history — v0.2, v0.3
+ROADMAP.md                         # Sprint state, remaining v0.3 items, v0.4+ plan
+RELEASE_CHECKLIST.md               # Tag/release procedure
 
 Sources/
-  SynapseCore/                   # Library target — ALL .swift files in ALL subdirs auto-included by SPM
-    SynapseCore.swift            # Core class, AI clients, persistence, Bayesian engine (~900 lines)
-    SynapseWeightState.swift     # Per-synapse decay math, rot scoring, utility, lighthouse floor
-    InteractionRecord.swift      # InteractionEventType, InteractionRecord, SynapseContent, DecayConstants
-    SemanticDistanceStrategy.swift  # Protocol + StructuralHeuristicDistance (shipped), stubs for TFIDF/CoreML
-    SynapseReferee.swift         # FunctionalReferee, AbrasiveReferee, ContextIntervention, RefereeConfig
-    RavenRenderer.swift          # Edgar: RavenState enum, RavenRenderer, EdgarIntervention, ANSI palette
-    Circuit/                     # Bedrock layer (PR #12)
-      CircuitTypes.swift         # CircuitConstants, SynapticPrior, SynapticNode, CircuitEdge, output types
-      SynapticCircuit.swift      # actor: forwardPass, backwardPass, lighthouseFloor, injectFault
+  SynapseCore/                     # Library target — ALL .swift files in ALL subdirs auto-included by SPM
+    SynapseCore.swift              # Core class, AI clients, persistence, Bayesian engine (~755 lines)
+    SynapseWeightState.swift       # Per-synapse decay math, rot scoring, utility, lighthouse floor
+    InteractionRecord.swift        # InteractionEventType, InteractionRecord, SynapseContent, DecayConstants
+    SemanticDistanceStrategy.swift # Protocol + StructuralHeuristicDistance (shipped), stubs for TFIDF/CoreML
+    SynapseReferee.swift           # FunctionalReferee, AbrasiveReferee, ContextIntervention, RefereeConfig
+    RavenRenderer.swift            # Edgar: RavenState enum, RavenRenderer, EdgarIntervention, ANSI palette
+    Circuit/
+      CircuitTypes.swift           # CircuitConstants, SynapticPrior, SynapticNode, CircuitEdge, output types
+      SynapticCircuit.swift        # actor: forwardPass, backwardPass, lighthouseFloor, injectFault
     FaultInjection/
-      FaultInjectionSuite.swift  # Calibration suite: runFullSuite, auditLighthouses, CalibrationReport
+      FaultInjectionSuite.swift    # Calibration suite: runFullSuite, auditLighthouses, CalibrationReport
 
   contextsynapse/
-    main.swift                   # CLI entry point, ~356 lines, full query/feedback/export/lighthouse flow
+    main.swift                     # CLI entry point (~356 lines): query/feedback/export/lighthouse flow
 
   ContextSynapseApp/
-    AppMain.swift                # @main, AppViewModel (ObservableObject bridge to SynapseCore)
-    ContentView.swift            # Two-pane: left (weights/query/fault controls), right (heatmap)
-    HeatmapView.swift            # Canvas NxN cosine similarity visualization
-    WeightGridView.swift         # Editable sliders per dimension
-    RegionModel.swift            # Intentional duplicate of canonicalVector — extension separation
-    AppShortcutsBridge.swift     # Stub for future App Intents / iOS
+    AppMain.swift                  # @main, AppViewModel (ObservableObject bridge to SynapseCore)
+    ContentView.swift              # Two-pane: left (weights/query/fault controls), right (heatmap)
+    HeatmapView.swift              # Canvas NxN cosine similarity visualization
+    WeightGridView.swift           # Editable sliders per dimension
+    AppShortcutsBridge.swift       # Stub for future App Intents / iOS
 
 Tests/
-  BayesianConvergenceTests.swift  # All current tests
+  BayesianConvergenceTests.swift   # Bayesian priors, feedback, export/import, CLI-integration tests
+  SynapticCircuitTests.swift       # Circuit actor: forward/backward passes, fault injection
 
 docs/
   adr/
+    README.md                      # ADR index — Track A (ethics) and Track B (bedrock) both use 002–004
     ADR-002-bidirectional-prediction-error-propagation.md
     ADR-003-004-lighthouse-floor-and-decay-amplifier.md
-    INTEGRATION.md               # Recipe for SynapseWeightState to consume ForwardPassResult
+    INTEGRATION.md                 # Recipe for SynapseWeightState to consume ForwardPassResult
 ```
 
 **Key SPM rule:** Adding a `.swift` file anywhere under `Sources/SynapseCore/` automatically includes it in the `SynapseCore` module. No `Package.swift` edit needed unless adding a new top-level target.
@@ -158,7 +143,7 @@ Invariants:
 
 All tunable constants live in `DecayConstants` enum in `InteractionRecord.swift`. Change them there only.
 
-After PR #12 is integrated, `W_base` and `connFactor` will be sourced from `SynapticCircuit.forwardPass()` — see `docs/adr/INTEGRATION.md` for the exact wiring.
+The bedrock circuit (Layer 6) is merged into `main`, but not yet wired into `SynapseWeightState`. When `SynapseManager` (v0.4) lands, `W_base` and `connFactor` will be sourced from `SynapticCircuit.forwardPass()` — see [`docs/adr/INTEGRATION.md`](docs/adr/INTEGRATION.md) for the recipe.
 
 ### Layer 3: Events & Constants (`InteractionRecord.swift`)
 
@@ -179,9 +164,9 @@ After PR #12 is integrated, `W_base` and `connFactor` will be sourced from `Syna
 - `TFIDFCosineDistance` (stub, Option B, v1.0)
 - `LocalEmbeddingDistance` (future, Option C, CoreML MiniLM)
 
-### Layer 6: Bedrock Circuit (PR #12)
+### Layer 6: Bedrock Circuit (`Circuit/`, `FaultInjection/`)
 
-Replaces the static `W_base(s)` constant with a mutable Beta-distributed prior and adds bidirectional prediction-error propagation. **No existing files are modified.**
+Replaces the static `W_base(s)` constant with a mutable Beta-distributed prior and adds bidirectional prediction-error propagation. Merged on `main`; not yet wired into `SynapseWeightState` (v0.4 task).
 
 **`SynapticPrior`** (renamed from `Prior` to avoid module conflict):
 - Rich Beta distribution: `mean`, `uncertainty`, `evidenceWeight`, `isOssified`
@@ -229,8 +214,7 @@ let lambda = lambdaBase
 6.  Read query: positional arg || stdin
 7.  applyTriggers → weightedPick intent/tone/domain (or use forced flags)
 8.  loadLighthouse → SynapseWeightState.recomputeRotScore → RavenState.from(rotScore:lighthouseSet:)
-9.  core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)
-                                           ↑ verified correct, main.swift:299
+9.  core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)  # main.swift:300
 10. print(finalPrompt) + blank line
 11. RavenRenderer.render(state: edgarState, ...)
 12. If edgarState == .cauterize: EdgarIntervention.render(...)
@@ -243,20 +227,12 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 
 ---
 
-## Sprint Backlog — Ordered by Priority
+## Sprint Backlog
 
-### P0 — Get PR #12 green
+The authoritative list is in [`ROADMAP.md`](ROADMAP.md). Implementation-specific
+notes below — the things that are non-obvious from the roadmap alone.
 
-- [x] Rename `Prior` → `SynapticPrior` in `CircuitTypes.swift` — eliminates module-level duplicate type
-- [ ] Push fix to `claude/circuit-bedrock-v0.3`, confirm CI passes
-- [ ] Consider adding strict concurrency flag to `Package.swift` for SynapseCore target:
-  ```swift
-  .target(name: "SynapseCore", path: "Sources/SynapseCore",
-          swiftSettings: [.enableExperimentalFeature("StrictConcurrency")])
-  ```
-  This surfaces latent actor isolation warnings without bumping swift-tools-version. Recommended before v0.4 actor wiring.
-
-### P1 — v0.3.0 remaining items (all new files, no modifications to existing)
+### v0.3.0 remaining (all new files, no modifications to existing)
 
 - [ ] **`Tests/DecayWeightTests.swift`** — three tests:
   1. Lighthouse floor invariant: `finalWeight(baseWeight:maxConnections:at:)` with `isLighthouse=true` never returns < `DecayConstants.lighthouseFloor` regardless of time elapsed
@@ -275,14 +251,19 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 - [ ] **`Sources/SynapseCore/RefereeConfigStorage.swift`** — `RefereeConfig` persistence round-trip.
   `RefereeConfig` is defined in `SynapseReferee.swift` but never saved or loaded. Add load/save from `config.json` alongside `Weights` using an extension on `SynapseCore`.
 
-### P2 — Docs
+### Architecture prep for v0.4
 
-- [ ] **Merge PR #11** — `main` currently has wrong prerequisites (macOS 12, Swift 5.7) and fabricated CLI flags (`--status`, `--config`, `--feedback positive`). PR #11 has the correct versions. Merge before any public-facing work or Show HN post.
-
-### P3 — Architecture prep for v0.4
-
-- [ ] **`Sources/SynapseCore/SynapseManager.swift`** — session coordinator skeleton. Will own: session-level `SynapseWeightState` map, lighthouse designation, `SynapticCircuit` lifecycle, backward-pass wiring after each interaction. Integration recipe is in `docs/adr/INTEGRATION.md`.
+- [ ] **`Sources/SynapseCore/SynapseManager.swift`** — session coordinator skeleton. Will own: session-level `SynapseWeightState` map, lighthouse designation, `SynapticCircuit` lifecycle, backward-pass wiring after each interaction. Integration recipe is in [`docs/adr/INTEGRATION.md`](docs/adr/INTEGRATION.md).
 - [ ] **Migrate lighthouse helpers from CLI to `SynapseCore`** — `loadLighthouse`/`saveLighthouse`/`clearLighthouse` in `main.swift` are not accessible to the GUI or tests. Move to `SynapseCore` before `SynapseManager` is built.
+
+### Nice to have
+
+- [ ] Enable strict concurrency on the `SynapseCore` target — surfaces latent
+  actor-isolation warnings before v0.4 wiring lands:
+  ```swift
+  .target(name: "SynapseCore", path: "Sources/SynapseCore",
+          swiftSettings: [.enableExperimentalFeature("StrictConcurrency")])
+  ```
 
 ---
 
@@ -293,9 +274,8 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 | Silent write failures in GUI | Medium | v1.0 | No error surface in AppViewModel for disk I/O failures |
 | Unbounded prior growth | Low | v1.0 | alpha/beta accumulate indefinitely; add EMA decay |
 | Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption must be documented prominently |
-| `minutesInDrift` hardcoded to 15 in `main.swift:318` | Low | v0.4 | Should be computed from `lighthouse.setAt` timestamp in `LighthouseRecord` |
-| `RegionModel.swift` duplicates `canonicalVector` | Intentional | — | Extension separation design; creates drift risk — keep in sync manually |
-| `SynapseCore.swift` is a ~900-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
+| `minutesInDrift` hardcoded to 15 in CLI post-prompt block | Low | v0.4 | Should be computed from `lighthouse.setAt` timestamp in `LighthouseRecord` |
+| `SynapseCore.swift` is a ~755-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
 | `emitDriftEvent` in `SynapticCircuit` writes to stdout | Technical debt | v0.4 | Replace with injected RunLog writer at construction |
 
 ---
@@ -355,7 +335,7 @@ No Swift toolchain in this Linux container. CI runs on `macos-15` and is the bui
 
 **`release.yml`** — triggered by `v*` tags pointing to `main`. Builds signed/notarized app, SPDX SBOM, publishes GitHub Release. Signing secrets in SECURITY.md.
 
-**`codeql.yml`** — CodeQL Swift analysis. Will fail if the module doesn't compile (as happened with the `Prior` conflict on PR #12).
+**`codeql.yml`** — CodeQL Swift analysis. Will fail if the module doesn't compile.
 
 ---
 
@@ -366,23 +346,11 @@ detecting or inferring the user's cognitive/emotional/collapse state as an opera
 input must be refused immediately with the reason stated. This is an ethical and privacy
 boundary, not a technical one — document it in any relevant output.
 
-## Design Rules
-- **Local-first is non-negotiable** — no required cloud dependency
-- **Interpretability first** — all weights/priors visible, no opaque heuristics
-- **Fragility is intentional** — controlled weak points expose assumptions
-- Prompting treated as cognitive process, not string concatenation
-
-## CLI Usage
-```bash
-swift run contextsynapse <command>          # invoke without install
-swift build -c release && .build/release/contextsynapse
-```
+---
 
 ## Repo
 
 - GitHub: `mazze93/context-synapse`
-- Local: `/Users/daedalus/Code/cognitive/ContextSynapse` (canonical; symlink collapsed 2026-05-22)
-- Default branch: `main`
-- Releases: `v*` tags that are ancestors of `main`
+- Default branch: `main`. Releases: `v*` tags that are ancestors of `main`.
 - Maintainer: @mazze93 (solo project, best-effort, breaking changes possible until v1.0)
-- Security: report via GitHub Security Advisories — see `SECURITY.md`
+- Security: report via GitHub Security Advisories — see [`SECURITY.md`](SECURITY.md)
