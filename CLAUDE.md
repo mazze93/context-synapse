@@ -7,31 +7,23 @@ Not a consumer product — built by and for a neurodivergent developer exploring
 
 ## CURRENT STATE — START HERE
 
-**Version:** v0.3.0-decay (active sprint)
-**Branch model:** all work on feature branches, PRs against `main`
+**Version:** v0.3 bedrock layer is **merged to `main`** (PR #12: SynapticCircuit
+actor, CircuitTypes, FaultInjectionSuite, ADRs). Latest release tag is still
+`v0.1.0` — no v0.3 tag has been cut. Docs rewrite (PR #11) and CodeRabbit test
+generation (PR #13, added `Tests/SynapticCircuitTests.swift`) are also merged.
+**Branch model:** all work on feature branches, PRs against `main`.
 
-### Open PRs
+### Historical notes — resolved, do not reopen
 
-| PR | Branch | Status | Contents |
-|----|--------|--------|----------|
-| #11 | `claude/repo-docs-value-trust-dLqaj` | Draft | README + INSTALL.md rewrite: real prerequisites (macOS 13+, Swift 5.8+), real CLI flags, correct config JSON, maintenance posture, SECURITY.md link |
-| #12 | `claude/circuit-bedrock-v0.3` | Draft, CI failing → **fix pushed** | Bedrock layer: SynapticCircuit actor, CircuitTypes, FaultInjectionSuite, 3 ADRs |
-
-### PR #12 CI failure — root cause and fix
-
-`SynapseCore.swift:183` defines `public struct Prior` (the existing simple Beta wrapper).
-`CircuitTypes.swift` originally also defined `public struct Prior` (the new richer type).
-Both land in the `SynapseCore` module. Duplicate type = build failure.
-
-**Fix:** Renamed the circuit-layer type to `SynapticPrior` throughout `CircuitTypes.swift`.
-The old `Prior` in `SynapseCore.swift` is untouched — it is serialized to disk in `config.json`, do not rename or move it.
-
-Verify the fix is clean: `grep -rn "^public struct Prior" Sources/SynapseCore/` should return exactly one result (`SynapseCore.swift:183`).
-
-### assemblePrompt — RESOLVED, do not reopen
-
-ROADMAP flagged this as HIGH/BUG. Verified: `main.swift:299` correctly calls
-`core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)`.
+- **`Prior` vs `SynapticPrior`:** the circuit-layer type was renamed
+  `SynapticPrior` to avoid a module-level duplicate with `Prior`
+  (`SynapseCore.swift:183`, serialized to disk — never rename or move it).
+  The two types are intentionally separate; see Coding Conventions.
+  Sanity check: `grep -rn "^public struct Prior" Sources/SynapseCore/` returns
+  exactly one result.
+- **assemblePrompt:** ROADMAP once flagged this HIGH/BUG. Verified correct —
+  `main.swift:300` calls
+  `core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)`.
 
 ---
 
@@ -82,7 +74,8 @@ Sources/
     AppShortcutsBridge.swift     # Stub for future App Intents / iOS
 
 Tests/
-  BayesianConvergenceTests.swift  # All current tests
+  BayesianConvergenceTests.swift  # Bayesian engine + CLI-integration tests
+  SynapticCircuitTests.swift      # Circuit/bedrock tests (added in PR #13)
 
 docs/
   adr/
@@ -230,7 +223,7 @@ let lambda = lambdaBase
 7.  applyTriggers → weightedPick intent/tone/domain (or use forced flags)
 8.  loadLighthouse → SynapseWeightState.recomputeRotScore → RavenState.from(rotScore:lighthouseSet:)
 9.  core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)
-                                           ↑ verified correct, main.swift:299
+                                           ↑ verified correct, main.swift:300
 10. print(finalPrompt) + blank line
 11. RavenRenderer.render(state: edgarState, ...)
 12. If edgarState == .cauterize: EdgarIntervention.render(...)
@@ -245,10 +238,10 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 
 ## Sprint Backlog — Ordered by Priority
 
-### P0 — Get PR #12 green
+### P0 — DONE (PR #12 merged to main)
 
 - [x] Rename `Prior` → `SynapticPrior` in `CircuitTypes.swift` — eliminates module-level duplicate type
-- [ ] Push fix to `claude/circuit-bedrock-v0.3`, confirm CI passes
+- [x] Push fix to `claude/circuit-bedrock-v0.3`, confirm CI passes — merged
 - [ ] Consider adding strict concurrency flag to `Package.swift` for SynapseCore target:
   ```swift
   .target(name: "SynapseCore", path: "Sources/SynapseCore",
@@ -277,7 +270,7 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 
 ### P2 — Docs
 
-- [ ] **Merge PR #11** — `main` currently has wrong prerequisites (macOS 12, Swift 5.7) and fabricated CLI flags (`--status`, `--config`, `--feedback positive`). PR #11 has the correct versions. Merge before any public-facing work or Show HN post.
+- [x] **Merge PR #11** — merged; README/INSTALL now carry the real prerequisites and CLI flags.
 
 ### P3 — Architecture prep for v0.4
 
@@ -293,7 +286,7 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 | Silent write failures in GUI | Medium | v1.0 | No error surface in AppViewModel for disk I/O failures |
 | Unbounded prior growth | Low | v1.0 | alpha/beta accumulate indefinitely; add EMA decay |
 | Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption must be documented prominently |
-| `minutesInDrift` hardcoded to 15 in `main.swift:318` | Low | v0.4 | Should be computed from `lighthouse.setAt` timestamp in `LighthouseRecord` |
+| `minutesInDrift` hardcoded to 15 (`main.swift:318`) | Low | v0.4 | Should be computed from `lighthouse.setAt` timestamp in `LighthouseRecord` |
 | `RegionModel.swift` duplicates `canonicalVector` | Intentional | — | Extension separation design; creates drift risk — keep in sync manually |
 | `SynapseCore.swift` is a ~900-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
 | `emitDriftEvent` in `SynapticCircuit` writes to stdout | Technical debt | v0.4 | Replace with injected RunLog writer at construction |
@@ -341,7 +334,9 @@ CONTEXT_SYNAPSE_FAULT_PROB=0.4 .build/debug/contextsynapse "test query"
 grep -rn "^public struct Prior" Sources/SynapseCore/
 ```
 
-No Swift toolchain in this Linux container. CI runs on `macos-15` and is the build authority.
+The local machine (macOS, Swift toolchain present) can build and test directly;
+CI on `macos-15` remains the build authority for merges. (An earlier version of
+this file was written from a Linux container without a toolchain — no longer true.)
 
 ---
 
@@ -381,7 +376,8 @@ swift build -c release && .build/release/contextsynapse
 ## Repo
 
 - GitHub: `mazze93/context-synapse`
-- Local: `/Users/daedalus/Code/cognitive/ContextSynapse` (canonical; symlink collapsed 2026-05-22)
+- Local: `~/Projects/cognitive/context-synapse` (workspace v2, 2026-07-15;
+  `~/Code` → `~/Projects`. The old `~/Code/cognitive/ContextSynapse` casing is gone.)
 - Default branch: `main`
 - Releases: `v*` tags that are ancestors of `main`
 - Maintainer: @mazze93 (solo project, best-effort, breaking changes possible until v1.0)
