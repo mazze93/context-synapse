@@ -12,13 +12,14 @@ private struct StandardErrorStream: TextOutputStream {
     }
 }
 
-private var standardError = StandardErrorStream()
+// Stateless — constructed locally at call sites; a shared global mutable
+// instance is not concurrency-safe under StrictConcurrency.
 
 // MARK: - AI Platform Integration
 
 /// Protocol for AI platform clients
 public protocol AIClient {
-    func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void)
+    func sendPrompt(_ prompt: String, completion: @escaping @Sendable (Result<String, Error>) -> Void)
 }
 
 /// Configuration for AI platforms
@@ -51,8 +52,8 @@ class BaseHTTPAIClient {
         url: URL,
         headers: [String: String],
         body: [String: Any],
-        responseParser: @escaping ([String: Any]) -> String?,
-        completion: @escaping (Result<String, Error>) -> Void
+        responseParser: @escaping @Sendable ([String: Any]) -> String?,
+        completion: @escaping @Sendable (Result<String, Error>) -> Void
     ) {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -109,7 +110,7 @@ public class OpenAIClient: AIClient {
         self.baseClient = BaseHTTPAIClient()
     }
     
-    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+    public func sendPrompt(_ prompt: String, completion: @escaping @Sendable (Result<String, Error>) -> Void) {
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
             completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
@@ -151,7 +152,7 @@ public class AnthropicClient: AIClient {
         self.baseClient = BaseHTTPAIClient()
     }
     
-    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+    public func sendPrompt(_ prompt: String, completion: @escaping @Sendable (Result<String, Error>) -> Void) {
         guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
             completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
@@ -286,6 +287,7 @@ public class SynapseCore {
     /// Simple logging helper for debugging and error tracking
     private func logError(_ message: String, error: Error? = nil) {
         let errorMsg = error.map { " - \($0.localizedDescription)" } ?? ""
+        var standardError = StandardErrorStream()
         print("ContextSynapse Error: \(message)\(errorMsg)", to: &standardError)
     }
     
