@@ -12,10 +12,10 @@ Branch: `claude/v0.3-ci-repair-and-p1`
 - [x] G. Strict concurrency flag (+ @Sendable AIClient closures, stderr global fix)
 - [x] H. Close out — CLAUDE.md reconciled; CLI verified end-to-end
       (lighthouse → breadcrumb → prompt → run-log snapshot → resync)
-- [ ] I. Landing page (`site/`) — distinctive static page, Edgar/lighthouse
-      aesthetic, self-contained HTML/CSS
-- [ ] J. Cloudflare Pages scaffolding (wrangler config + deploy notes);
-      deploy itself deferred to user
+- [x] I. Landing page (`site/public/index.html`) — verified in Chrome, all
+      sections render; preview artifact published for user review
+- [x] J. Cloudflare scaffolding (`site/wrangler.toml`, Workers static assets;
+      deploy notes in `site/README.md`); deploy itself deferred to user
 
 ## To resume
 Read PLAN.md then DECISIONS.md; continue at first unchecked phase.
