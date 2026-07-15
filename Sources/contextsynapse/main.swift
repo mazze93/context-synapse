@@ -251,6 +251,7 @@ let currentContent = SynapseContent(
 
 let activeLighthouseRecord = core.loadLighthouseRecord()
 let activeLighthouse = activeLighthouseRecord?.content
+let refereeMode = core.loadRefereeConfig().mode
 var rotScore: Double = 0.0
 var decayWeightNow: Double = 1.0
 var edgarState: RavenState = .dormant
@@ -306,7 +307,7 @@ let decaySnapshot = SynapseCore.RunLog.DecaySnapshot(
     decayWeight: decayWeightNow,
     rotScore: rotScore,
     lighthouseSaliency: max(0.0, min(1.0, 1.0 - rotScore)),
-    refereeMode: core.loadRefereeConfig().mode.rawValue,
+    refereeMode: refereeMode.rawValue,
     interventionFired: edgarState == .cauterize
 )
 var runContext: [String: String] = [

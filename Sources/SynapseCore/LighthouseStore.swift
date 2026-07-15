@@ -77,9 +77,17 @@ extension SynapseCore {
             if let data = try? Data(contentsOf: url),
                let record = try? JSONDecoder().decode(LighthouseRecord.self, from: data) {
                 if url == legacyLighthouseURL {
-                    // one-time migration to the canonical path; legacy copy removed
-                    try? data.write(to: lighthouseURL, options: .atomic)
-                    try? fm.removeItem(at: url)
+                    // One-time migration. The legacy copy is removed only after
+                    // the canonical write verifiably succeeds — a lighthouse
+                    // anchor must never be lost to a failed migration. On
+                    // failure we keep serving from the legacy path and retry
+                    // next load.
+                    do {
+                        try fm.createDirectory(at: lighthouseURL.deletingLastPathComponent(),
+                                               withIntermediateDirectories: true)
+                        try data.write(to: lighthouseURL, options: .atomic)
+                        try? fm.removeItem(at: url)
+                    } catch {}
                 }
                 return record
             }
