@@ -20,66 +20,15 @@ while scanIndex < args.count {
 
 let core = SynapseCore(user: selectedUser)
 
-// MARK: - Lighthouse persistence
-// Stored in AppSupport alongside run logs so Edgar remembers
-// the lighthouse across invocations within a session.
-// File: ~/Library/Application Support/ContextSynapse/<user>/lighthouse.json
-
-private struct LighthouseRecord: Codable {
-    let id: String
-    let text: String
-    let fileReferences: [String]
-    let functionNames: [String]
-    let setAt: String
-}
-
-func lighthouseStorageURL(user: String) -> URL {
-    let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return base
-        .appendingPathComponent("ContextSynapse")
-        .appendingPathComponent(user)
-        .appendingPathComponent("lighthouse.json")
-}
-
-func loadLighthouse(user: String) -> SynapseContent? {
-    let url = lighthouseStorageURL(user: user)
-    guard let data = try? Data(contentsOf: url),
-          let record = try? JSONDecoder().decode(LighthouseRecord.self, from: data) else {
-        return nil
-    }
-    return SynapseContent(
-        id: record.id,
-        text: record.text,
-        fileReferences: record.fileReferences,
-        functionNames: record.functionNames
-    )
-}
-
-func saveLighthouse(_ content: SynapseContent, user: String) {
-    let url = lighthouseStorageURL(user: user)
-    try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-    let record = LighthouseRecord(
-        id: content.id,
-        text: content.text,
-        fileReferences: content.fileReferences,
-        functionNames: content.functionNames,
-        setAt: ISO8601DateFormatter().string(from: Date())
-    )
-    if let data = try? JSONEncoder().encode(record) {
-        try? data.write(to: url)
-    }
-}
-
-func clearLighthouse(user: String) {
-    try? FileManager.default.removeItem(at: lighthouseStorageURL(user: user))
-}
-
 // MARK: - --lighthouse and --resync
+// Persistence lives in SynapseCore (LighthouseStore.swift) so the GUI and
+// tests reach the same store. Legacy <user>/lighthouse.json files written by
+// the pre-0.4 CLI are migrated transparently on load.
 
 if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < args.count {
     let label = args[lighthouseIdx + 1]
     let content = SynapseContent(id: UUID().uuidString, text: label)
-    saveLighthouse(content, user: selectedUser)
+    core.saveLighthouse(content)
 
     RavenRenderer.render(state: .perched, frameIndex: 0, lighthouseLabel: label, rotScore: 0.0)
     print("")
@@ -89,7 +38,7 @@ if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < 
 }
 
 if args.contains("--resync") {
-    clearLighthouse(user: selectedUser)
+    core.clearLighthouse()
     RavenRenderer.render(state: .resync, frameIndex: 0, lighthouseLabel: nil, rotScore: 0.0)
     print("")
     print("\u{001B}[38;5;51m⚓ Lighthouse cleared. Set a new one with --lighthouse \"description\"\u{001B}[0m")
@@ -278,7 +227,8 @@ let currentContent = SynapseContent(
     functionNames: []
 )
 
-let activeLighthouse = loadLighthouse(user: selectedUser)
+let activeLighthouseRecord = core.loadLighthouseRecord()
+let activeLighthouse = activeLighthouseRecord?.content
 var rotScore: Double = 0.0
 var edgarState: RavenState = .dormant
 
@@ -291,8 +241,12 @@ if let lighthouse = activeLighthouse {
     weightState.recomputeRotScore(content: currentContent, lighthouse: lighthouse)
     rotScore = weightState.rotScore
     edgarState = RavenState.from(rotScore: rotScore, lighthouseSet: true)
-} else {
-    edgarState = .dormant
+}
+
+// MARK: - Breadcrumb
+// Re-sync line before the prompt, also appended to logs/breadcrumb-<iso>.txt.
+if let record = activeLighthouseRecord {
+    BreadcrumbWriter.emit(for: record, rotScore: rotScore, core: core)
 }
 
 // MARK: - Assemble and print
@@ -315,7 +269,8 @@ if edgarState == .cauterize, let lighthouse = activeLighthouse {
     let intervention = ContextIntervention(
         lighthouseDescription: lighthouse.text,
         currentSynapseDescription: userQuery,
-        minutesInDrift: 15,
+        minutesInDrift: activeLighthouseRecord?.setAtDate
+            .map { Int(Date().timeIntervalSince($0) / 60) } ?? 0,
         lighthouseSaliencyNow: max(0.0, 1.0 - rotScore),
         lighthouseSaliencyAtSessionStart: 1.0
     )

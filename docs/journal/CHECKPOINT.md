@@ -2,8 +2,9 @@
 
 Branch: `claude/v0.3-ci-repair-and-p1`
 
-- [ ] A. Scaffold (journal + branch)
-- [ ] B. CI repair (.vscode untrack + SynapticCircuitTests rename)
+- [x] A. Scaffold (journal + branch)
+- [x] B. CI repair (.vscode untrack + SynapticCircuitTests rename + real
+      CircuitEdge.withWeight identity bug found & fixed)
 - [ ] C. Lighthouse migration + tests
 - [ ] D. DecayWeightTests.swift
 - [ ] E. RunLogDecay.swift
