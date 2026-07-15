@@ -10,6 +10,14 @@
 - 2026-07-15 · `minutesInDrift` computed from `LighthouseRecord.setAt` (was
   hardcoded 15) · The record now travels to the CLI via LighthouseStore, so the
   known-issue fix costs two lines here · Reverse: restore literal 15.
+- 2026-07-15 · BreadcrumbWriter writes one file per run (`breadcrumb-<iso>.txt`,
+  atomic) rather than appending a single growing log · matches the `logRun`
+  per-run pattern; CLAUDE.md said "append" but a shared append file breaks the
+  single-writer assumption already flagged in Known Issues · Reverse: switch to
+  FileHandle append on one path.
+- 2026-07-15 · Landing page second color is amber (#f0b445) = the lighthouse
+  beam; cyan stays Edgar/system · the two voices of the scene are the two
+  voices of the palette · Reverse: collapse to cyan-only.
 - 2026-07-15 · Breadcrumb prints to stdout before the prompt · CLAUDE.md P1
   spec says "emit a re-sync line before the prompt"; RavenRenderer already uses
   stdout, so the machine-readable-stdout rule is already scoped to the prompt
