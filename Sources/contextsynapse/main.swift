@@ -45,6 +45,27 @@ if args.contains("--resync") {
     exit(0)
 }
 
+// MARK: - --referee
+// Persist referee mode (referee.json). Abrasive mode is strictly opt-in
+// (ADR-002) — this explicit flag is the only way to enable it.
+
+if let refereeIdx = args.firstIndex(of: "--referee"), refereeIdx + 1 < args.count {
+    let rawMode = args[refereeIdx + 1].lowercased()
+    guard let mode = RefereeMode(rawValue: rawMode) else {
+        let valid = RefereeMode.allCases.map(\.rawValue).joined(separator: " | ")
+        fputs("Unknown referee mode '\(rawMode)'. Use: \(valid)\n", stderr)
+        exit(1)
+    }
+    var refereeConfig = core.loadRefereeConfig()
+    refereeConfig.mode = mode
+    guard core.saveRefereeConfig(refereeConfig) else {
+        fputs("Failed to persist referee config\n", stderr)
+        exit(1)
+    }
+    print("referee mode set: \(mode.rawValue)")
+    exit(0)
+}
+
 // MARK: - Export/Import
 
 let exportIndex = args.firstIndex(of: "--export")
@@ -138,7 +159,7 @@ while i < args.count {
         i += 1; if i < args.count { feedbackFlag = args[i] }
     case "--fault-prob":
         i += 1; if i < args.count { faultProbFlag = args[i] }
-    case "--user", "--lighthouse", "--resync":
+    case "--user", "--lighthouse", "--resync", "--referee":
         i += 1
     default:
         if providedQuery == nil {
@@ -163,6 +184,7 @@ guard let userQuery = providedQuery?.trimmingCharacters(in: .whitespacesAndNewli
     fputs("Usage: contextsynapse <your query> [--user <id>] [--app Mail] [--focus Home] [--intent Brainstorm] [--tone Casual] [--domain Work] [--time HH:MM] [--feedback good|bad] [--fault-prob 0.0-1.0]\n", stderr)
     fputs("       contextsynapse --lighthouse \"<your primary goal>\"\n", stderr)
     fputs("       contextsynapse --resync\n", stderr)
+    fputs("       contextsynapse --referee functional|abrasive\n", stderr)
     fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...] [--user <id>]\n", stderr)
     fputs("       contextsynapse --import <input-file.json> [--merge] [--user <id>]\n", stderr)
     exit(1)
@@ -230,6 +252,7 @@ let currentContent = SynapseContent(
 let activeLighthouseRecord = core.loadLighthouseRecord()
 let activeLighthouse = activeLighthouseRecord?.content
 var rotScore: Double = 0.0
+var decayWeightNow: Double = 1.0
 var edgarState: RavenState = .dormant
 
 if let lighthouse = activeLighthouse {
@@ -240,6 +263,7 @@ if let lighthouse = activeLighthouse {
     weightState.record(.fileSave)
     weightState.recomputeRotScore(content: currentContent, lighthouse: lighthouse)
     rotScore = weightState.rotScore
+    decayWeightNow = weightState.finalWeight()
     edgarState = RavenState.from(rotScore: rotScore, lighthouseSet: true)
 }
 
@@ -277,7 +301,23 @@ if edgarState == .cauterize, let lighthouse = activeLighthouse {
     EdgarIntervention.render(intervention: intervention)
 }
 
-// MARK: - Run log (extended with Edgar state)
+// MARK: - Run log (Edgar state + typed decay snapshot)
+let decaySnapshot = SynapseCore.RunLog.DecaySnapshot(
+    decayWeight: decayWeightNow,
+    rotScore: rotScore,
+    lighthouseSaliency: max(0.0, min(1.0, 1.0 - rotScore)),
+    refereeMode: core.loadRefereeConfig().mode.rawValue,
+    interventionFired: edgarState == .cauterize
+)
+var runContext: [String: String] = [
+    "user":       selectedUser,
+    "app":        flagApp ?? "unknown",
+    "focus":      flagFocus ?? "unknown",
+    "timeBucket": activeTriggers.joined(separator: ","),
+    "edgarState": "\(edgarState)",
+    "lighthouse": activeLighthouse?.text ?? "none"
+]
+runContext.merge(decaySnapshot.contextFields) { _, new in new }
 let run = SynapseCore.RunLog(
     timestamp: ISO8601DateFormatter().string(from: Date()),
     input: userQuery,
@@ -285,15 +325,7 @@ let run = SynapseCore.RunLog(
     chosenTone: chosenTone,
     chosenDomain: chosenDomain,
     assembledPrompt: finalPrompt,
-    context: [
-        "user":       selectedUser,
-        "app":        flagApp ?? "unknown",
-        "focus":      flagFocus ?? "unknown",
-        "timeBucket": activeTriggers.joined(separator: ","),
-        "rotScore":   String(format: "%.4f", rotScore),
-        "edgarState": "\(edgarState)",
-        "lighthouse": activeLighthouse?.text ?? "none"
-    ]
+    context: runContext
 )
 core.logRun(run)
 
