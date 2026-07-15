@@ -164,7 +164,7 @@ After PR #12 is integrated, `W_base` and `connFactor` will be sourced from `Syna
 - `FunctionalReferee` (default): saliency = velocity×0.5 + connectivity×0.3 + decayWeight×0.2. Silent — never surfaces to user unless an intervention is explicitly constructed.
 - `AbrasiveReferee` (opt-in via `referee.mode = "abrasive"` in config.json): drops saliency to 0.1 when `rotScore >= 0.3` AND `timeSinceLighthouse >= 15min` AND not in cooldown. 15-minute cooldown prevents spam. **Only activates on distraction, not cognitive collapse — ADR-002 is permanent.**
 - `ContextIntervention` — data passed to `EdgarIntervention.render()` for the 4-choice interrupt UI
-- `RefereeConfig { mode: RefereeMode }` — exists but is not yet persisted (P1 sprint item)
+- `RefereeConfig` — persisted in `referee.json` via `RefereeConfigStorage.swift`; set with CLI `--referee functional|abrasive`
 
 ### Layer 5: Semantic Distance (`SemanticDistanceStrategy.swift`)
 
@@ -231,8 +231,11 @@ let lambda = lambdaBase
 14. core.applyFeedbackUpdate(...) if --feedback good|bad|yes|no
 ```
 
-Lighthouse state persists across invocations via `lighthouse.json` in the user's AppSupport dir.
-**Design note:** `loadLighthouse`/`saveLighthouse`/`clearLighthouse` live in `main.swift`. They belong in `SynapseCore` for testability and GUI access. Move when `SynapseManager` is built (v0.4).
+Lighthouse state persists across invocations via `users/<user>/lighthouse.json`.
+Persistence lives in `SynapseCore` (`LighthouseStore.swift`) — accessible to CLI,
+GUI, and tests. The CLI also supports `--referee functional|abrasive` (persists
+`referee.json`) and emits a breadcrumb re-sync line before the prompt whenever
+a lighthouse is loaded.
 
 ---
 
@@ -242,31 +245,25 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 
 - [x] Rename `Prior` → `SynapticPrior` in `CircuitTypes.swift` — eliminates module-level duplicate type
 - [x] Push fix to `claude/circuit-bedrock-v0.3`, confirm CI passes — merged
-- [ ] Consider adding strict concurrency flag to `Package.swift` for SynapseCore target:
-  ```swift
-  .target(name: "SynapseCore", path: "Sources/SynapseCore",
-          swiftSettings: [.enableExperimentalFeature("StrictConcurrency")])
-  ```
-  This surfaces latent actor isolation warnings without bumping swift-tools-version. Recommended before v0.4 actor wiring.
+- [x] Strict concurrency enabled on `SynapseCore` target (`Package.swift`).
+  Surfaced and fixed: `@Sendable` on AIClient closures, per-call
+  `StandardErrorStream` instead of a shared mutable global.
 
-### P1 — v0.3.0 remaining items (all new files, no modifications to existing)
+### P1 — v0.3.0 remaining items — ALL DONE (branch `claude/v0.3-ci-repair-and-p1`)
 
-- [ ] **`Tests/DecayWeightTests.swift`** — three tests:
-  1. Lighthouse floor invariant: `finalWeight(baseWeight:maxConnections:at:)` with `isLighthouse=true` never returns < `DecayConstants.lighthouseFloor` regardless of time elapsed
-  2. Cauterization threshold: `rotScore >= DecayConstants.rotCauterizeThreshold` must set `requiresCauterization = true`
-  3. Decay monotonicity: `decayWeight` decreases as `at` moves further from `lastInteractionAt`
-  Use UUID-suffixed folder names in any `SynapseCore` instances (match `BayesianConvergenceTests.swift` isolation pattern).
-
-- [ ] **`Sources/SynapseCore/RunLogDecay.swift`** — extend `SynapseCore.RunLog` via extension (no modification to `SynapseCore.swift`):
-  Add `DecaySnapshot: Codable` struct with fields: `decayWeight`, `rotScore`, `lighthouseSaliency`, `refereeMode`, `interventionFired: Bool`.
-  Wire the additional fields into `main.swift`'s `RunLog` context dict (currently `rotScore` and `edgarState` are stored as raw strings — upgrade them).
-
-- [ ] **`Sources/SynapseCore/BreadcrumbWriter.swift`** — on lighthouse load, emit a re-sync line before the prompt:
-  `⚓ Lighthouse: [text] — saliency [X]% — last touched [N]min ago`
-  Append to `logs/breadcrumb-<iso>.txt`. Called from CLI after `loadLighthouse` returns non-nil.
-
-- [ ] **`Sources/SynapseCore/RefereeConfigStorage.swift`** — `RefereeConfig` persistence round-trip.
-  `RefereeConfig` is defined in `SynapseReferee.swift` but never saved or loaded. Add load/save from `config.json` alongside `Weights` using an extension on `SynapseCore`.
+- [x] **`Tests/DecayWeightTests.swift`** — floor invariant, cauterization
+  threshold, decay monotonicity (+ lighthouse-never-rots, connectivity slows
+  decay). Uses a deterministic `MaxDistanceStrategy` for the rot case.
+- [x] **`Sources/SynapseCore/RunLogDecay.swift`** — `DecaySnapshot` round-trips
+  through `RunLog.context` keys; old logs yield `nil` snapshots. `main.swift`
+  now writes the typed snapshot instead of raw `rotScore` string.
+- [x] **BreadcrumbWriter** — lives in `LighthouseStore.swift`; emits the
+  re-sync line before the prompt and appends `logs/breadcrumb-<iso>.txt`.
+- [x] **`Sources/SynapseCore/RefereeConfigStorage.swift`** — persisted in
+  **`referee.json`**, not `config.json` (deliberate deviation: `saveWeights()`
+  rewrites `config.json` wholesale and would clobber sibling keys). New CLI
+  flag `--referee functional|abrasive` is the only way to opt into abrasive
+  (ADR-002).
 
 ### P2 — Docs
 
@@ -275,7 +272,10 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 ### P3 — Architecture prep for v0.4
 
 - [ ] **`Sources/SynapseCore/SynapseManager.swift`** — session coordinator skeleton. Will own: session-level `SynapseWeightState` map, lighthouse designation, `SynapticCircuit` lifecycle, backward-pass wiring after each interaction. Integration recipe is in `docs/adr/INTEGRATION.md`.
-- [ ] **Migrate lighthouse helpers from CLI to `SynapseCore`** — `loadLighthouse`/`saveLighthouse`/`clearLighthouse` in `main.swift` are not accessible to the GUI or tests. Move to `SynapseCore` before `SynapseManager` is built.
+- [x] **Migrate lighthouse helpers from CLI to `SynapseCore`** — done:
+  `LighthouseStore.swift` (`LighthouseRecord`, save/load/clear on `SynapseCore`).
+  Canonical path `users/<user>/lighthouse.json`; legacy pre-0.4 CLI path
+  migrates transparently on first load.
 
 ---
 
@@ -286,7 +286,7 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 | Silent write failures in GUI | Medium | v1.0 | No error surface in AppViewModel for disk I/O failures |
 | Unbounded prior growth | Low | v1.0 | alpha/beta accumulate indefinitely; add EMA decay |
 | Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption must be documented prominently |
-| `minutesInDrift` hardcoded to 15 (`main.swift:318`) | Low | v0.4 | Should be computed from `lighthouse.setAt` timestamp in `LighthouseRecord` |
+| ~~`minutesInDrift` hardcoded to 15~~ | Fixed | — | Now computed from `LighthouseRecord.setAt` |
 | `RegionModel.swift` duplicates `canonicalVector` | Intentional | — | Extension separation design; creates drift risk — keep in sync manually |
 | `SynapseCore.swift` is a ~900-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
 | `emitDriftEvent` in `SynapticCircuit` writes to stdout | Technical debt | v0.4 | Replace with injected RunLog writer at construction |
