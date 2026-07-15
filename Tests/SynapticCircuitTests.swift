@@ -57,115 +57,115 @@ final class CircuitConstantsTests: XCTestCase {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Prior Tests
+// MARK: - SynapticPrior Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-final class PriorTests: XCTestCase {
+final class SynapticPriorTests: XCTestCase {
 
     // MARK: Factories
 
     func testUninformedPriorHasMeanOfHalf() {
-        let p = Prior.uninformed
+        let p = SynapticPrior.uninformed
         XCTAssertEqual(p.mean, 0.5, accuracy: 1e-9)
     }
 
     func testUninformedPriorHasAlphaAndBetaOfOne() {
-        let p = Prior.uninformed
+        let p = SynapticPrior.uninformed
         XCTAssertEqual(p.alpha, 1.0, accuracy: 1e-9)
         XCTAssertEqual(p.beta, 1.0, accuracy: 1e-9)
     }
 
     func testLighthousePriorMeanIsAboveHalf() {
-        let p = Prior.lighthouse()
+        let p = SynapticPrior.lighthouse()
         XCTAssertGreaterThan(p.mean, 0.5)
     }
 
     func testLighthousePriorDefaultConfidence10ProducesExpectedRatio() {
         // alpha = 10 * 0.8 = 8, beta = 10 * 0.2 = 2 → mean = 8/10 = 0.8
-        let p = Prior.lighthouse(confidence: 10.0)
+        let p = SynapticPrior.lighthouse(confidence: 10.0)
         XCTAssertEqual(p.mean, 0.8, accuracy: 1e-9)
     }
 
     func testLighthousePriorCustomConfidenceScales() {
-        let p = Prior.lighthouse(confidence: 20.0)
+        let p = SynapticPrior.lighthouse(confidence: 20.0)
         // alpha = 16, beta = 4 → mean = 16/20 = 0.8
         XCTAssertEqual(p.mean, 0.8, accuracy: 1e-9)
-        XCTAssertGreaterThan(p.evidenceWeight, Prior.lighthouse(confidence: 10.0).evidenceWeight)
+        XCTAssertGreaterThan(p.evidenceWeight, SynapticPrior.lighthouse(confidence: 10.0).evidenceWeight)
     }
 
     // MARK: init clamps
 
     func testInitClampsAlphaBelowMinimum() {
-        let p = Prior(alpha: 0.0, beta: 1.0)
+        let p = SynapticPrior(alpha: 0.0, beta: 1.0)
         XCTAssertEqual(p.alpha, CircuitConstants.minimumAlpha)
     }
 
     func testInitClampsBetaBelowMinimum() {
-        let p = Prior(alpha: 1.0, beta: 0.0)
+        let p = SynapticPrior(alpha: 1.0, beta: 0.0)
         XCTAssertGreaterThan(p.beta, 0.0)
     }
 
     // MARK: mean & evidenceWeight
 
     func testMeanIsAlphaOverAlphaPlusBeta() {
-        let p = Prior(alpha: 3.0, beta: 7.0)
+        let p = SynapticPrior(alpha: 3.0, beta: 7.0)
         XCTAssertEqual(p.mean, 3.0 / 10.0, accuracy: 1e-9)
     }
 
     func testEvidenceWeightIsAlphaPlusBeta() {
-        let p = Prior(alpha: 4.0, beta: 6.0)
+        let p = SynapticPrior(alpha: 4.0, beta: 6.0)
         XCTAssertEqual(p.evidenceWeight, 10.0, accuracy: 1e-9)
     }
 
     // MARK: uncertainty
 
     func testUncertaintyDecreaseAsEvidenceAccumulates() {
-        let weak   = Prior(alpha: 1.0, beta: 1.0)
-        let strong = Prior(alpha: 50.0, beta: 50.0)
+        let weak   = SynapticPrior(alpha: 1.0, beta: 1.0)
+        let strong = SynapticPrior(alpha: 50.0, beta: 50.0)
         XCTAssertGreaterThan(weak.uncertainty, strong.uncertainty)
     }
 
     func testUncertaintyIsPositive() {
-        let p = Prior.uninformed
+        let p = SynapticPrior.uninformed
         XCTAssertGreaterThan(p.uncertainty, 0.0)
     }
 
     // MARK: isOssified
 
     func testIsOssifiedFalseForNewPrior() {
-        let p = Prior.uninformed
+        let p = SynapticPrior.uninformed
         XCTAssertFalse(p.isOssified)
     }
 
     func testIsOssifiedTrueWhenEvidenceWeightReachesOrExceedsCap() {
         // evidenceWeightCap = 100.0
-        let p = Prior(alpha: 60.0, beta: 40.0) // weight = 100
+        let p = SynapticPrior(alpha: 60.0, beta: 40.0) // weight = 100
         XCTAssertTrue(p.isOssified)
     }
 
     func testIsOssifiedFalseJustBelowCap() {
-        let p = Prior(alpha: 50.0, beta: 49.0) // weight = 99
+        let p = SynapticPrior(alpha: 50.0, beta: 49.0) // weight = 99
         XCTAssertFalse(p.isOssified)
     }
 
     // MARK: update
 
     func testUpdateIncreasesAlphaOnPositiveObservation() {
-        var p = Prior.uninformed
+        var p = SynapticPrior.uninformed
         let alphaInitial = p.alpha
         p.update(observation: 1.0, eta: 0.1)
         XCTAssertGreaterThan(p.alpha, alphaInitial)
     }
 
     func testUpdateIncreasesBetaOnZeroObservation() {
-        var p = Prior.uninformed
+        var p = SynapticPrior.uninformed
         let betaInitial = p.beta
         p.update(observation: 0.0, eta: 0.1)
         XCTAssertGreaterThan(p.beta, betaInitial)
     }
 
     func testUpdateIncreaseMeanAfterRepeatedPositiveObservations() {
-        var p = Prior.uninformed
+        var p = SynapticPrior.uninformed
         let initialMean = p.mean
         for _ in 0..<20 {
             p.update(observation: 1.0, eta: 0.1)
@@ -174,7 +174,7 @@ final class PriorTests: XCTestCase {
     }
 
     func testUpdateDecreaseMeanAfterRepeatedNegativeObservations() {
-        var p = Prior(alpha: 5.0, beta: 1.0) // high mean initially
+        var p = SynapticPrior(alpha: 5.0, beta: 1.0) // high mean initially
         let initialMean = p.mean
         for _ in 0..<20 {
             p.update(observation: 0.0, eta: 0.1)
@@ -183,8 +183,8 @@ final class PriorTests: XCTestCase {
     }
 
     func testUpdateClampsObservationAboveOneToOne() {
-        var p = Prior.uninformed
-        var pRef = Prior.uninformed
+        var p = SynapticPrior.uninformed
+        var pRef = SynapticPrior.uninformed
         p.update(observation: 2.0, eta: 0.1)    // over-range
         pRef.update(observation: 1.0, eta: 0.1) // clamped equivalent
         XCTAssertEqual(p.alpha, pRef.alpha, accuracy: 1e-9)
@@ -192,8 +192,8 @@ final class PriorTests: XCTestCase {
     }
 
     func testUpdateClampsObservationBelowZeroToZero() {
-        var p = Prior.uninformed
-        var pRef = Prior.uninformed
+        var p = SynapticPrior.uninformed
+        var pRef = SynapticPrior.uninformed
         p.update(observation: -0.5, eta: 0.1)  // under-range
         pRef.update(observation: 0.0, eta: 0.1) // clamped equivalent
         XCTAssertEqual(p.alpha, pRef.alpha, accuracy: 1e-9)
@@ -201,7 +201,7 @@ final class PriorTests: XCTestCase {
     }
 
     func testUpdateIsBlockedWhenOssified() {
-        var p = Prior(alpha: 60.0, beta: 40.0) // isOssified = true
+        var p = SynapticPrior(alpha: 60.0, beta: 40.0) // isOssified = true
         let alphaBefore = p.alpha
         let betaBefore  = p.beta
         p.update(observation: 0.0, eta: 0.5)
@@ -211,7 +211,7 @@ final class PriorTests: XCTestCase {
 
     func testUpdateEnforcesMinimumAlphaFloor() {
         // Start with minimum alpha, apply high-penalty update; alpha must not drop below 1.0
-        var p = Prior(alpha: 1.0, beta: 1.0)
+        var p = SynapticPrior(alpha: 1.0, beta: 1.0)
         for _ in 0..<100 {
             p.update(observation: 0.0, eta: 0.5)
         }
@@ -221,7 +221,7 @@ final class PriorTests: XCTestCase {
     // MARK: widenUncertainty
 
     func testWidenUncertaintyIncreasesBeta() {
-        var p = Prior.uninformed
+        var p = SynapticPrior.uninformed
         let betaBefore = p.beta
         p.widenUncertainty(by: 0.5)
         XCTAssertGreaterThan(p.beta, betaBefore)
@@ -232,14 +232,14 @@ final class PriorTests: XCTestCase {
         // The implementation widens uncertainty which does change mean, but
         // the intent is to decrease mean as beta increases.
         // Test that alpha does NOT change.
-        var p = Prior.uninformed
+        var p = SynapticPrior.uninformed
         let alphaBefore = p.alpha
         p.widenUncertainty(by: 1.0)
         XCTAssertEqual(p.alpha, alphaBefore, accuracy: 1e-9)
     }
 
     func testWidenUncertaintyIsBlockedWhenOssified() {
-        var p = Prior(alpha: 60.0, beta: 40.0) // isOssified
+        var p = SynapticPrior(alpha: 60.0, beta: 40.0) // isOssified
         let betaBefore = p.beta
         p.widenUncertainty(by: 10.0)
         XCTAssertEqual(p.beta, betaBefore, accuracy: 1e-9)
@@ -248,9 +248,9 @@ final class PriorTests: XCTestCase {
     // MARK: Codable
 
     func testPriorIsRoundTrippable() throws {
-        let original = Prior(alpha: 3.5, beta: 7.2)
+        let original = SynapticPrior(alpha: 3.5, beta: 7.2)
         let data = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(Prior.self, from: data)
+        let decoded = try JSONDecoder().decode(SynapticPrior.self, from: data)
         XCTAssertEqual(decoded.alpha, original.alpha, accuracy: 1e-9)
         XCTAssertEqual(decoded.beta, original.beta, accuracy: 1e-9)
     }
@@ -258,14 +258,14 @@ final class PriorTests: XCTestCase {
     // MARK: Equatable
 
     func testPriorEquality() {
-        let a = Prior(alpha: 2.0, beta: 3.0)
-        let b = Prior(alpha: 2.0, beta: 3.0)
+        let a = SynapticPrior(alpha: 2.0, beta: 3.0)
+        let b = SynapticPrior(alpha: 2.0, beta: 3.0)
         XCTAssertEqual(a, b)
     }
 
     func testPriorInequality() {
-        let a = Prior(alpha: 2.0, beta: 3.0)
-        let b = Prior(alpha: 2.0, beta: 4.0)
+        let a = SynapticPrior(alpha: 2.0, beta: 3.0)
+        let b = SynapticPrior(alpha: 2.0, beta: 4.0)
         XCTAssertNotEqual(a, b)
     }
 }
@@ -290,7 +290,7 @@ final class SynapticNodeTests: XCTestCase {
 
     func testDefaultPriorIsUninformed() {
         let node = SynapticNode(synapseID: "test")
-        XCTAssertEqual(node.prior, Prior.uninformed)
+        XCTAssertEqual(node.prior, SynapticPrior.uninformed)
     }
 
     func testCustomIDIsPreserved() {
@@ -386,7 +386,7 @@ final class SynapticNodeTests: XCTestCase {
         // CONCLUSION: uncertainty CANNOT exceed 0.15 given minimumAlpha=1.0
         // So isEpistemicallyUnstable is only triggered by predictionError threshold.
         // This is an important boundary condition to test.
-        let node = SynapticNode(synapseID: "lighthouse", prior: Prior(alpha: 1.0, beta: 0.01))
+        let node = SynapticNode(synapseID: "lighthouse", prior: SynapticPrior(alpha: 1.0, beta: 0.01))
         // uncertainty = 1.0*0.01 / (1.01^2 * 2.01) ≈ 0.01/2.049 ≈ 0.00488
         XCTAssertFalse(node.isEpistemicallyUnstable)
     }
@@ -851,7 +851,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testPriorMeanReturnsCorrectValueAfterRegistration() async {
         let circuit = SynapticCircuit()
-        let node = SynapticNode(synapseID: "beta", prior: Prior(alpha: 3.0, beta: 7.0))
+        let node = SynapticNode(synapseID: "beta", prior: SynapticPrior(alpha: 3.0, beta: 7.0))
         await circuit.register(node)
         let mean = await circuit.priorMean(for: "beta")
         XCTAssertNotNil(mean)
@@ -938,7 +938,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testForwardPassPredictionsAreInUnitInterval() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "s1", prior: Prior(alpha: 8.0, beta: 2.0)))
+        await circuit.register(SynapticNode(synapseID: "s1", prior: SynapticPrior(alpha: 8.0, beta: 2.0)))
         let result = await circuit.forwardPass()
         for (_, pred) in result.predictions {
             XCTAssertGreaterThanOrEqual(pred, 0.0)
@@ -1089,7 +1089,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testLighthouseFloorIsPriorMeanTimesCeiling() async {
         let circuit = SynapticCircuit()
-        let prior = Prior(alpha: 8.0, beta: 2.0) // mean = 0.8
+        let prior = SynapticPrior(alpha: 8.0, beta: 2.0) // mean = 0.8
         await circuit.register(SynapticNode(synapseID: "lh", prior: prior))
         let floor = await circuit.lighthouseFloor(for: "lh", isLighthouse: true)
         let expected = 0.8 * CircuitConstants.lighthouseFloorCeiling
@@ -1098,7 +1098,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testLighthouseFloorDecreasesAfterNegativeFeedback() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "lh", prior: Prior.lighthouse()))
+        await circuit.register(SynapticNode(synapseID: "lh", prior: SynapticPrior.lighthouse()))
         let floorBefore = await circuit.lighthouseFloor(for: "lh", isLighthouse: true)
         _ = await circuit.forwardPass()
         for _ in 0..<15 {
@@ -1120,7 +1120,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testInjectFaultDecreasesPriorMean() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "target", prior: Prior(alpha: 5.0, beta: 1.0)))
+        await circuit.register(SynapticNode(synapseID: "target", prior: SynapticPrior(alpha: 5.0, beta: 1.0)))
         _ = await circuit.forwardPass()
         let report = await circuit.injectFault(intoSynapse: "target", severity: 0.7)
         XCTAssertLessThan(report.postInjectionPriorMean, report.preInjectionPriorMean)
@@ -1128,7 +1128,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testInjectFaultWithLiveMutationFalseDoesNotChangeLiveState() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "s", prior: Prior(alpha: 5.0, beta: 1.0)))
+        await circuit.register(SynapticNode(synapseID: "s", prior: SynapticPrior(alpha: 5.0, beta: 1.0)))
         _ = await circuit.forwardPass()
         let meanBefore = await circuit.priorMean(for: "s")!
         _ = await circuit.injectFault(intoSynapse: "s", severity: 0.9, liveMutation: false)
@@ -1138,7 +1138,7 @@ final class SynapticCircuitTests: XCTestCase {
 
     func testInjectFaultWithLiveMutationTrueChangesLiveState() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "s", prior: Prior(alpha: 5.0, beta: 1.0)))
+        await circuit.register(SynapticNode(synapseID: "s", prior: SynapticPrior(alpha: 5.0, beta: 1.0)))
         _ = await circuit.forwardPass()
         let meanBefore = await circuit.priorMean(for: "s")!
         _ = await circuit.injectFault(intoSynapse: "s", severity: 0.9, liveMutation: true)
@@ -1306,7 +1306,7 @@ final class FaultInjectionSuiteTests: XCTestCase {
 
     func testRunFullSuiteDoesNotMutateLiveCircuit() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "s", prior: Prior(alpha: 8.0, beta: 2.0)))
+        await circuit.register(SynapticNode(synapseID: "s", prior: SynapticPrior(alpha: 8.0, beta: 2.0)))
         _ = await circuit.forwardPass()
         let meanBefore = await circuit.priorMean(for: "s")!
         let suite = FaultInjectionSuite(circuit: circuit)
@@ -1371,8 +1371,8 @@ final class FaultInjectionSuiteTests: XCTestCase {
 
     func testAuditLighthousesReturnsOneReportPerLighthouse() async {
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "lh1", prior: Prior.lighthouse()))
-        await circuit.register(SynapticNode(synapseID: "lh2", prior: Prior.lighthouse()))
+        await circuit.register(SynapticNode(synapseID: "lh1", prior: SynapticPrior.lighthouse()))
+        await circuit.register(SynapticNode(synapseID: "lh2", prior: SynapticPrior.lighthouse()))
         _ = await circuit.forwardPass()
         let suite = FaultInjectionSuite(circuit: circuit)
         let audit = await suite.auditLighthouses(lighthouseIDs: ["lh1", "lh2"])
@@ -1400,7 +1400,7 @@ final class FaultInjectionSuiteTests: XCTestCase {
     func testAuditLighthousesUsesSevereFaultOnly() async {
         // Verify the audit reports contain severity=0.7
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "lighthouse", prior: Prior.lighthouse()))
+        await circuit.register(SynapticNode(synapseID: "lighthouse", prior: SynapticPrior.lighthouse()))
         _ = await circuit.forwardPass()
         let suite = FaultInjectionSuite(circuit: circuit)
         let audit = await suite.auditLighthouses(lighthouseIDs: ["lighthouse"])
@@ -1421,7 +1421,7 @@ final class FaultInjectionSuiteTests: XCTestCase {
     func testRecommendedAmplifierDoesNotExceedCeiling() async {
         // max amplifier = 1.0 + 1.0 * 0.5 = 1.5; test with high-drift scenario
         let circuit = SynapticCircuit()
-        await circuit.register(SynapticNode(synapseID: "s", prior: Prior(alpha: 8.0, beta: 2.0)))
+        await circuit.register(SynapticNode(synapseID: "s", prior: SynapticPrior(alpha: 8.0, beta: 2.0)))
         _ = await circuit.forwardPass()
         let suite = FaultInjectionSuite(circuit: circuit)
         let report = await suite.runFullSuite()
@@ -1432,7 +1432,7 @@ final class FaultInjectionSuiteTests: XCTestCase {
         let circuit = SynapticCircuit()
         // Add many pathological nodes to drive couplingIndex high
         for i in 0..<5 {
-            await circuit.register(SynapticNode(synapseID: "p\(i)", prior: Prior.lighthouse()))
+            await circuit.register(SynapticNode(synapseID: "p\(i)", prior: SynapticPrior.lighthouse()))
         }
         _ = await circuit.forwardPass()
         let suite = FaultInjectionSuite(circuit: circuit)
