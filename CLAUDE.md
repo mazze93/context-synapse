@@ -34,7 +34,7 @@ generation (PR #13, added `Tests/SynapticCircuitTests.swift`) are also merged.
 | Language | Swift 5.8+, macOS 13+ only |
 | Build | `swift build -c release` |
 | Test | `swift build && swift test --parallel` — build first, some tests exec the CLI binary |
-| CI | GitHub Actions (`macos-15` runner) — no Swift toolchain in this Linux container |
+| CI | GitHub Actions (`macos-15` runner) — build authority for merges |
 | Persistence | JSON files in `~/Library/Application Support/ContextSynapse/` |
 | Dependencies | None (pure Swift stdlib + Foundation) |
 
