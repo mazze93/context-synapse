@@ -110,9 +110,18 @@ public struct SynapseWeightState {
     // RotScore(s) = D(s, lighthouse) · tanh(T_drift / T_threshold) · VelocityAmplifier
     // Lighthouse synapses cannot rot (RotScore always 0.0).
     // Design ref: Ops Manual §5.2
+    //
+    // driftReference: the timestamp the drift clock counts FROM. Defaults to
+    // this synapse's own lastInteractionAt (session-persistent callers, v0.4
+    // SynapseManager). Per-query callers whose SynapseWeightState is ephemeral
+    // (the CLI) MUST pass the lighthouse's clock (e.g. its setAt) instead:
+    // a synapse born microseconds ago has tDrift ≈ 0, tanh(0) = 0, and rot
+    // can never fire — the drift clock belongs to the lighthouse, not to a
+    // freshly constructed synapse.
     public mutating func recomputeRotScore(
         content: SynapseContent,
         lighthouse: SynapseContent,
+        driftReference: Date? = nil,
         at now: Date = Date()
     ) {
         guard !isLighthouse else {
@@ -122,7 +131,7 @@ public struct SynapseWeightState {
         }
 
         let distance = distanceStrategy.distance(from: content, to: lighthouse)
-        let tDrift = now.timeIntervalSince(lastInteractionAt)
+        let tDrift = now.timeIntervalSince(driftReference ?? lastInteractionAt)
         let tRatio = tDrift / DecayConstants.rotThresholdSeconds
         let tanhFactor = tanh(tRatio)
 

@@ -239,7 +239,10 @@ let chosenDomain = flagDomain ?? core.weightedPick(domainScores) ?? "Work"
 
 // MARK: - Rot computation
 // Load lighthouse and compute rot score for this query.
-// SynapseWeightState is ephemeral per-query here.
+// SynapseWeightState is ephemeral per-query here, so the drift clock is
+// anchored to the LIGHTHOUSE (record.setAt) via driftReference — a synapse
+// born microseconds ago has tDrift ≈ 0 and tanh(0) = 0, so measured against
+// its own clock rot can never fire and Edgar stays perched forever.
 // SynapseManager will own session-level persistence in v0.4.
 
 let currentContent = SynapseContent(
@@ -261,8 +264,12 @@ if let lighthouse = activeLighthouse {
         synapseId: currentContent.id,
         isLighthouse: false
     )
+    weightState.recomputeRotScore(
+        content: currentContent,
+        lighthouse: lighthouse,
+        driftReference: activeLighthouseRecord?.setAtDate
+    )
     weightState.record(.fileSave)
-    weightState.recomputeRotScore(content: currentContent, lighthouse: lighthouse)
     rotScore = weightState.rotScore
     decayWeightNow = weightState.finalWeight()
     edgarState = RavenState.from(rotScore: rotScore, lighthouseSet: true)

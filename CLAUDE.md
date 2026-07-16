@@ -221,7 +221,11 @@ let lambda = lambdaBase
 5.  Parse flags: --app, --focus, --intent, --tone, --domain, --time, --feedback, --fault-prob
 6.  Read query: positional arg || stdin
 7.  applyTriggers → weightedPick intent/tone/domain (or use forced flags)
-8.  loadLighthouse → SynapseWeightState.recomputeRotScore → RavenState.from(rotScore:lighthouseSet:)
+8.  core.loadLighthouseRecord → recomputeRotScore(driftReference: record.setAt)
+    → RavenState.from(rotScore:lighthouseSet:)
+    ⚠ the drift clock is the LIGHTHOUSE's, never the per-query synapse's —
+    an ephemeral synapse measured against its own clock has tDrift ≈ 0 and
+    can never rot (regression-pinned in Tests/DecayWeightTests.swift §4)
 9.  core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)
                                            ↑ verified correct, main.swift:300
 10. print(finalPrompt) + blank line

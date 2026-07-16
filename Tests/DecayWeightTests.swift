@@ -95,6 +95,45 @@ final class DecayWeightTests: XCTestCase {
         }
     }
 
+    // MARK: - 4. Drift clock anchoring (regression: the CLI path)
+    // A per-query SynapseWeightState is born microseconds before rot is
+    // computed. Measured from its own lastInteractionAt, tDrift ≈ 0 and
+    // tanh(0) = 0 — rot could NEVER fire from the CLI, leaving Edgar perched
+    // forever. The drift clock must be anchored to the lighthouse (setAt)
+    // via driftReference.
+
+    func testEphemeralSynapseRotsAgainstOldLighthouseViaDriftReference() {
+        let lighthouseSetAt = Date().addingTimeInterval(-30 * 60) // 30 min ago
+        var state = SynapseWeightState(
+            synapseId: "cli-\(UUID().uuidString)",
+            distanceStrategy: MaxDistanceStrategy()
+        )
+        state.recomputeRotScore(
+            content: SynapseContent(id: "c", text: "rabbit hole"),
+            lighthouse: SynapseContent(id: "l", text: "ship the release"),
+            driftReference: lighthouseSetAt
+        )
+        // distance 1.0 · tanh(1800/900) ≈ 0.964 · velocity 1.0 → stirring+
+        XCTAssertGreaterThan(state.rotScore, 0.5,
+            "rot must accumulate against a lighthouse set 30 minutes ago")
+    }
+
+    func testEphemeralSynapseWithoutDriftReferenceCannotRot() {
+        // Documents the trap: a just-recorded ephemeral synapse measured
+        // against its own clock reports ~zero rot regardless of distance.
+        var state = SynapseWeightState(
+            synapseId: "trap-\(UUID().uuidString)",
+            distanceStrategy: MaxDistanceStrategy()
+        )
+        state.record(.fileSave)
+        state.recomputeRotScore(
+            content: SynapseContent(id: "c", text: "rabbit hole"),
+            lighthouse: SynapseContent(id: "l", text: "ship the release")
+        )
+        XCTAssertLessThan(state.rotScore, 0.01,
+            "without driftReference an ephemeral synapse cannot rot — if this fails, the CLI default changed")
+    }
+
     func testConnectivitySlowsDecay() {
         let start = Date()
         var isolated = SynapseWeightState(synapseId: "iso-\(UUID().uuidString)",
