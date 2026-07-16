@@ -123,6 +123,43 @@ final class SynapseManagerTests: XCTestCase {
             "a 30-min-old anchor + unrelated thread must read as drifted")
     }
 
+    // MARK: - Touchstone regressions (probes that failed on first assay)
+
+    func testRepeatedDriftingObservationsKeepRotHigh() async throws {
+        // Probe 1: hammering the same rabbit-hole query must NOT calm Edgar.
+        // Drift anchors to the lighthouse's setAt, not the drifting synapse's
+        // own last interaction — first assay read saliency 1% then 100%/100%.
+        let manager = makeManager(lighthouse: makeLighthouse(minutesAgo: 40))
+        var saliencies: [Double] = []
+        for _ in 0..<3 {
+            let epoch = await manager.observe(content("browse modular synth listings"),
+                                              event: .fileSave)
+            saliencies.append(try XCTUnwrap(epoch).lighthouseSaliency)
+        }
+        for (i, s) in saliencies.enumerated() {
+            XCTAssertLessThan(s, 0.5,
+                "observation \(i): repeat visits to a drifted thread must stay drifted (got saliency \(s))")
+        }
+    }
+
+    func testNewLighthouseStartsFreshSession() async {
+        // Probe 2: epochs recorded against one anchor are not evidence for
+        // another. --resync + new --lighthouse must not inherit old epochs.
+        let url = tempSessionURL()
+        let first = makeManager(lighthouse: makeLighthouse(text: "old anchor"),
+                                sessionURL: url)
+        _ = await first.observe(content("some thread"), event: .fileSave)
+        let oldCount = await first.epochs.count
+        XCTAssertEqual(oldCount, 1)
+
+        let second = makeManager(lighthouse: makeLighthouse(text: "totally new anchor"),
+                                 sessionURL: url)
+        let epochs = await second.epochs
+        let synapses = await second.trackedSynapses
+        XCTAssertTrue(epochs.isEmpty, "old anchor's epochs must not leak into the new session")
+        XCTAssertTrue(synapses.isEmpty, "old anchor's synapse clocks must not leak either")
+    }
+
     // MARK: - Circuit wiring
 
     func testBackwardPassProducesPredictionErrorForObservedSynapse() async throws {

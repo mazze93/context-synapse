@@ -280,7 +280,9 @@ var rotScore: Double = 0.0
 var decayWeightNow: Double = 1.0
 var edgarState: RavenState = .dormant
 
-let manager = core.makeSynapseManager()
+// Reuse the record loaded above — loadLighthouseRecord() re-reads disk and
+// can re-run the legacy-path migration side effect if called twice.
+let manager = SynapseManager(sessionURL: core.sessionURL, lighthouse: activeLighthouseRecord)
 if let epoch = await manager.observe(currentContent, event: .fileSave) {
     rotScore = max(0.0, min(1.0, 1.0 - epoch.lighthouseSaliency))
     decayWeightNow = epoch.observedDecayWeight
