@@ -35,7 +35,7 @@ generation (PR #13, added `Tests/SynapticCircuitTests.swift`) are also merged.
 | Build | `swift build -c release` |
 | Test | `swift build && swift test --parallel` — build first, some tests exec the CLI binary |
 | CI | GitHub Actions (`macos-15` runner) — build authority for merges |
-| Persistence | JSON files in `~/Library/Application Support/ContextSynapse/` |
+| Persistence | JSON files in `~/Library/Application Support/ContextSynapse/` (per-user: config, regions, lighthouse, referee, `session.json` epochs) |
 | Dependencies | None (pure Swift stdlib + Foundation) |
 
 ---
@@ -56,6 +56,8 @@ Sources/
     SemanticDistanceStrategy.swift  # Protocol + StructuralHeuristicDistance (shipped), stubs for TFIDF/CoreML
     SynapseReferee.swift         # FunctionalReferee, AbrasiveReferee, ContextIntervention, RefereeConfig
     RavenRenderer.swift          # Edgar: RavenState enum, RavenRenderer, EdgarIntervention, ANSI palette
+    SynapseManager.swift         # v0.4 session coordinator (actor): persistent synapse map,
+                                 #   circuit lifecycle + backward pass, RSA epoch snapshots, RSARenderer
     Circuit/                     # Bedrock layer (PR #12)
       CircuitTypes.swift         # CircuitConstants, SynapticPrior, SynapticNode, CircuitEdge, output types
       SynapticCircuit.swift      # actor: forwardPass, backwardPass, lighthouseFloor, injectFault
@@ -275,7 +277,7 @@ a lighthouse is loaded.
 
 ### P3 — Architecture prep for v0.4
 
-- [ ] **`Sources/SynapseCore/SynapseManager.swift`** — session coordinator skeleton. Will own: session-level `SynapseWeightState` map, lighthouse designation, `SynapticCircuit` lifecycle, backward-pass wiring after each interaction. Integration recipe is in `docs/adr/INTEGRATION.md`.
+- [x] **`Sources/SynapseCore/SynapseManager.swift`** — DONE (v0.4). Actor owning the session-level synapse map (persisted to `session.json`), lighthouse designation, `SynapticCircuit` lifecycle, and backward-pass wiring per interaction (INTEGRATION.md recipe). Every observation snapshots an **RSA epoch**: an NxN similarity matrix over [lighthouse + tracked synapses] plus anchor saliency — render with `contextsynapse --rsa` (heatmap + saliency sparkline). The old Region/NxN machinery's role, repointed at real session data; the GUI heatmap remains a consumer candidate.
 - [x] **Migrate lighthouse helpers from CLI to `SynapseCore`** — done:
   `LighthouseStore.swift` (`LighthouseRecord`, save/load/clear on `SynapseCore`).
   Canonical path `users/<user>/lighthouse.json`; legacy pre-0.4 CLI path

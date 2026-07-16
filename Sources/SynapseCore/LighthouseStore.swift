@@ -8,7 +8,7 @@ import Foundation
 //
 // ADR-001 still governs: lighthouses are set on confirmed user choice only.
 
-public struct LighthouseRecord: Codable, Equatable {
+public struct LighthouseRecord: Codable, Equatable, Sendable {
     public let id: String
     public let text: String
     public let fileReferences: [String]
@@ -98,6 +98,18 @@ extension SynapseCore {
     public func clearLighthouse() {
         try? fm.removeItem(at: lighthouseURL)
         try? fm.removeItem(at: legacyLighthouseURL)
+    }
+
+    /// Session state persisted by SynapseManager (v0.4):
+    /// `…/ContextSynapse/users/<user>/session.json`
+    public var sessionURL: URL {
+        configURL.deletingLastPathComponent().appendingPathComponent("session.json")
+    }
+
+    /// Convenience: a SynapseManager wired to this core's session file and
+    /// active lighthouse.
+    public func makeSynapseManager() -> SynapseManager {
+        SynapseManager(sessionURL: sessionURL, lighthouse: loadLighthouseRecord())
     }
 }
 
