@@ -54,15 +54,21 @@ public struct EpochSnapshot: Codable, Equatable, Sendable {
 public struct SessionState: Codable, Sendable {
     public var sessionId: String
     public var startedAt: Date
+    /// The lighthouse this session's epochs were recorded against. Epochs
+    /// from different anchors must never mix — a session is one anchor's
+    /// evidence. Changing the lighthouse starts a fresh session.
+    public var lighthouseID: String?
     public var synapses: [SynapseSnapshot]
     public var epochs: [EpochSnapshot]
 
     public init(sessionId: String = UUID().uuidString,
                 startedAt: Date = Date(),
+                lighthouseID: String? = nil,
                 synapses: [SynapseSnapshot] = [],
                 epochs: [EpochSnapshot] = []) {
         self.sessionId = sessionId
         self.startedAt = startedAt
+        self.lighthouseID = lighthouseID
         self.synapses = synapses
         self.epochs = epochs
     }
@@ -85,6 +91,9 @@ public actor SynapseManager {
     private let circuit = SynapticCircuit()
     private var state: SessionState
     private var circuitSeeded = false
+    /// Cached at seed time — avoids copying the whole circuit snapshot
+    /// across the actor boundary just to look up one UUID.
+    private var lighthouseNodeID: UUID?
 
     // MARK: Init
 
@@ -95,15 +104,18 @@ public actor SynapseManager {
         self.lighthouse = lighthouse
         self.distanceStrategy = distanceStrategy
         if let data = try? Data(contentsOf: sessionURL),
-           let loaded = try? JSONDecoder().decode(SessionState.self, from: data) {
+           let loaded = try? JSONDecoder().decode(SessionState.self, from: data),
+           loaded.lighthouseID == lighthouse?.id {
             self.state = loaded
         } else {
-            self.state = SessionState()
+            // No prior session, or the anchor changed (--resync / new
+            // --lighthouse): epochs recorded against a different anchor are
+            // not evidence for this one. Start fresh.
+            self.state = SessionState(lighthouseID: lighthouse?.id)
         }
     }
 
     public var epochs: [EpochSnapshot] { state.epochs }
-    public var latestEpoch: EpochSnapshot? { state.epochs.last }
     public var trackedSynapses: [SynapseSnapshot] { state.synapses }
 
     // MARK: - Observe (the epoch tick)
@@ -116,9 +128,8 @@ public actor SynapseManager {
     public func observe(_ content: SynapseContent,
                         event: InteractionEventType,
                         at now: Date = Date()) async -> EpochSnapshot? {
-        guard let lighthouse, let lighthouseContent = lighthouse.content as SynapseContent? else {
-            return nil
-        }
+        guard let lighthouse else { return nil }
+        let lighthouseContent = lighthouse.content
         await seedCircuitIfNeeded()
 
         // 1. Find-or-create the synapse. Reuse by exact text match so a
@@ -142,7 +153,6 @@ public actor SynapseManager {
         // 2. Circuit registration + bidirectional coupling to the lighthouse.
         if isNew {
             let node = SynapticNode(synapseID: snapshot.id, prior: .uninformed)
-            let lighthouseNodeID = await circuitNodeID(for: Self.lighthouseSynapseID)
             await circuit.register(node)
             if let lhID = lighthouseNodeID {
                 // Bidirectional coupling to the anchor; edge weight = initial
@@ -156,18 +166,22 @@ public actor SynapseManager {
         // 3. Forward pass before the observation (ordering contract).
         _ = await circuit.forwardPass()
 
-        // 4. Rot: session-persistent clock. A synapse revisited after drift
-        //    measures from ITS OWN last interaction; a brand-new one from the
-        //    lighthouse's setAt (drift began when the anchor was set).
+        // 4. Rot: the drift clock anchors to the LIGHTHOUSE (setAt), for new
+        //    AND revisited synapses alike. Drift is time-away-from-anchor —
+        //    NOT time since you last touched the drifting thread. Anchoring
+        //    to the synapse's own lastInteractionAt lets a user hammering a
+        //    rabbit hole reset their own rot to ~0 on every repeat (probe-
+        //    confirmed regression: saliency read 1% then 100%/100% on
+        //    repeats). When lighthouse *interactions* are tracked (v0.5),
+        //    this becomes time-since-last-lighthouse-interaction.
         var weightState = SynapseWeightState(
             restoring: snapshot,
             sessionStart: state.startedAt,
             distanceStrategy: distanceStrategy
         )
-        let driftReference = isNew ? (lighthouse.setAtDate ?? now) : snapshot.lastInteractionAt
         weightState.recomputeRotScore(content: snapshot.content,
                                       lighthouse: lighthouseContent,
-                                      driftReference: driftReference,
+                                      driftReference: lighthouse.setAtDate ?? now,
                                       at: now)
         weightState.record(event)
         let observedDecayWeight = weightState.finalWeight(at: now)
@@ -192,7 +206,9 @@ public actor SynapseManager {
             matrix: matrix,
             lighthouseSaliency: max(0.0, min(1.0, 1.0 - snapshot.rotScore)),
             observedDecayWeight: observedDecayWeight,
-            rotScores: Dictionary(uniqueKeysWithValues: state.synapses.map { ($0.text, $0.rotScore) }),
+            // Keyed by synapse id (unique by construction) — keying by text
+            // would trap in Dictionary(uniqueKeysWithValues:) on collision.
+            rotScores: Dictionary(uniqueKeysWithValues: state.synapses.map { ($0.id, $0.rotScore) }),
             predictionErrors: backward.predictionErrors,
             epistemicallyUnstable: backward.epistemicallyUnstableNodes
         )
@@ -236,16 +252,13 @@ public actor SynapseManager {
         // Lighthouse node: earned confidence (ADR-003), plus nodes for any
         // synapses restored from a previous invocation of this session.
         if lighthouse != nil {
-            await circuit.register(SynapticNode(synapseID: Self.lighthouseSynapseID,
-                                                prior: .lighthouse()))
+            let node = SynapticNode(synapseID: Self.lighthouseSynapseID, prior: .lighthouse())
+            lighthouseNodeID = node.id
+            await circuit.register(node)
         }
         for snapshot in state.synapses where !snapshot.isLighthouse {
             await circuit.register(SynapticNode(synapseID: snapshot.id, prior: .uninformed))
         }
-    }
-
-    private func circuitNodeID(for synapseID: String) async -> UUID? {
-        await circuit.snapshot().nodes.first { $0.synapseID == synapseID }?.id
     }
 
     private func evictStaleSynapses() {
