@@ -20,66 +20,15 @@ while scanIndex < args.count {
 
 let core = SynapseCore(user: selectedUser)
 
-// MARK: - Lighthouse persistence
-// Stored in AppSupport alongside run logs so Edgar remembers
-// the lighthouse across invocations within a session.
-// File: ~/Library/Application Support/ContextSynapse/<user>/lighthouse.json
-
-private struct LighthouseRecord: Codable {
-    let id: String
-    let text: String
-    let fileReferences: [String]
-    let functionNames: [String]
-    let setAt: String
-}
-
-func lighthouseStorageURL(user: String) -> URL {
-    let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return base
-        .appendingPathComponent("ContextSynapse")
-        .appendingPathComponent(user)
-        .appendingPathComponent("lighthouse.json")
-}
-
-func loadLighthouse(user: String) -> SynapseContent? {
-    let url = lighthouseStorageURL(user: user)
-    guard let data = try? Data(contentsOf: url),
-          let record = try? JSONDecoder().decode(LighthouseRecord.self, from: data) else {
-        return nil
-    }
-    return SynapseContent(
-        id: record.id,
-        text: record.text,
-        fileReferences: record.fileReferences,
-        functionNames: record.functionNames
-    )
-}
-
-func saveLighthouse(_ content: SynapseContent, user: String) {
-    let url = lighthouseStorageURL(user: user)
-    try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-    let record = LighthouseRecord(
-        id: content.id,
-        text: content.text,
-        fileReferences: content.fileReferences,
-        functionNames: content.functionNames,
-        setAt: ISO8601DateFormatter().string(from: Date())
-    )
-    if let data = try? JSONEncoder().encode(record) {
-        try? data.write(to: url)
-    }
-}
-
-func clearLighthouse(user: String) {
-    try? FileManager.default.removeItem(at: lighthouseStorageURL(user: user))
-}
-
 // MARK: - --lighthouse and --resync
+// Persistence lives in SynapseCore (LighthouseStore.swift) so the GUI and
+// tests reach the same store. Legacy <user>/lighthouse.json files written by
+// the pre-0.4 CLI are migrated transparently on load.
 
 if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < args.count {
     let label = args[lighthouseIdx + 1]
     let content = SynapseContent(id: UUID().uuidString, text: label)
-    saveLighthouse(content, user: selectedUser)
+    core.saveLighthouse(content)
 
     RavenRenderer.render(state: .perched, frameIndex: 0, lighthouseLabel: label, rotScore: 0.0)
     print("")
@@ -89,10 +38,31 @@ if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < 
 }
 
 if args.contains("--resync") {
-    clearLighthouse(user: selectedUser)
+    core.clearLighthouse()
     RavenRenderer.render(state: .resync, frameIndex: 0, lighthouseLabel: nil, rotScore: 0.0)
     print("")
     print("\u{001B}[38;5;51m⚓ Lighthouse cleared. Set a new one with --lighthouse \"description\"\u{001B}[0m")
+    exit(0)
+}
+
+// MARK: - --referee
+// Persist referee mode (referee.json). Abrasive mode is strictly opt-in
+// (ADR-002) — this explicit flag is the only way to enable it.
+
+if let refereeIdx = args.firstIndex(of: "--referee"), refereeIdx + 1 < args.count {
+    let rawMode = args[refereeIdx + 1].lowercased()
+    guard let mode = RefereeMode(rawValue: rawMode) else {
+        let valid = RefereeMode.allCases.map(\.rawValue).joined(separator: " | ")
+        fputs("Unknown referee mode '\(rawMode)'. Use: \(valid)\n", stderr)
+        exit(1)
+    }
+    var refereeConfig = core.loadRefereeConfig()
+    refereeConfig.mode = mode
+    guard core.saveRefereeConfig(refereeConfig) else {
+        fputs("Failed to persist referee config\n", stderr)
+        exit(1)
+    }
+    print("referee mode set: \(mode.rawValue)")
     exit(0)
 }
 
@@ -189,7 +159,7 @@ while i < args.count {
         i += 1; if i < args.count { feedbackFlag = args[i] }
     case "--fault-prob":
         i += 1; if i < args.count { faultProbFlag = args[i] }
-    case "--user", "--lighthouse", "--resync":
+    case "--user", "--lighthouse", "--resync", "--referee":
         i += 1
     default:
         if providedQuery == nil {
@@ -214,6 +184,7 @@ guard let userQuery = providedQuery?.trimmingCharacters(in: .whitespacesAndNewli
     fputs("Usage: contextsynapse <your query> [--user <id>] [--app Mail] [--focus Home] [--intent Brainstorm] [--tone Casual] [--domain Work] [--time HH:MM] [--feedback good|bad] [--fault-prob 0.0-1.0]\n", stderr)
     fputs("       contextsynapse --lighthouse \"<your primary goal>\"\n", stderr)
     fputs("       contextsynapse --resync\n", stderr)
+    fputs("       contextsynapse --referee functional|abrasive\n", stderr)
     fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...] [--user <id>]\n", stderr)
     fputs("       contextsynapse --import <input-file.json> [--merge] [--user <id>]\n", stderr)
     exit(1)
@@ -268,7 +239,10 @@ let chosenDomain = flagDomain ?? core.weightedPick(domainScores) ?? "Work"
 
 // MARK: - Rot computation
 // Load lighthouse and compute rot score for this query.
-// SynapseWeightState is ephemeral per-query here.
+// SynapseWeightState is ephemeral per-query here, so the drift clock is
+// anchored to the LIGHTHOUSE (record.setAt) via driftReference — a synapse
+// born microseconds ago has tDrift ≈ 0 and tanh(0) = 0, so measured against
+// its own clock rot can never fire and Edgar stays perched forever.
 // SynapseManager will own session-level persistence in v0.4.
 
 let currentContent = SynapseContent(
@@ -278,8 +252,11 @@ let currentContent = SynapseContent(
     functionNames: []
 )
 
-let activeLighthouse = loadLighthouse(user: selectedUser)
+let activeLighthouseRecord = core.loadLighthouseRecord()
+let activeLighthouse = activeLighthouseRecord?.content
+let refereeMode = core.loadRefereeConfig().mode
 var rotScore: Double = 0.0
+var decayWeightNow: Double = 1.0
 var edgarState: RavenState = .dormant
 
 if let lighthouse = activeLighthouse {
@@ -287,12 +264,21 @@ if let lighthouse = activeLighthouse {
         synapseId: currentContent.id,
         isLighthouse: false
     )
+    weightState.recomputeRotScore(
+        content: currentContent,
+        lighthouse: lighthouse,
+        driftReference: activeLighthouseRecord?.setAtDate
+    )
     weightState.record(.fileSave)
-    weightState.recomputeRotScore(content: currentContent, lighthouse: lighthouse)
     rotScore = weightState.rotScore
+    decayWeightNow = weightState.finalWeight()
     edgarState = RavenState.from(rotScore: rotScore, lighthouseSet: true)
-} else {
-    edgarState = .dormant
+}
+
+// MARK: - Breadcrumb
+// Re-sync line before the prompt, also appended to logs/breadcrumb-<iso>.txt.
+if let record = activeLighthouseRecord {
+    BreadcrumbWriter.emit(for: record, rotScore: rotScore, core: core)
 }
 
 // MARK: - Assemble and print
@@ -315,14 +301,31 @@ if edgarState == .cauterize, let lighthouse = activeLighthouse {
     let intervention = ContextIntervention(
         lighthouseDescription: lighthouse.text,
         currentSynapseDescription: userQuery,
-        minutesInDrift: 15,
+        minutesInDrift: activeLighthouseRecord?.setAtDate
+            .map { Int(Date().timeIntervalSince($0) / 60) } ?? 0,
         lighthouseSaliencyNow: max(0.0, 1.0 - rotScore),
         lighthouseSaliencyAtSessionStart: 1.0
     )
     EdgarIntervention.render(intervention: intervention)
 }
 
-// MARK: - Run log (extended with Edgar state)
+// MARK: - Run log (Edgar state + typed decay snapshot)
+let decaySnapshot = SynapseCore.RunLog.DecaySnapshot(
+    decayWeight: decayWeightNow,
+    rotScore: rotScore,
+    lighthouseSaliency: max(0.0, min(1.0, 1.0 - rotScore)),
+    refereeMode: refereeMode.rawValue,
+    interventionFired: edgarState == .cauterize
+)
+var runContext: [String: String] = [
+    "user":       selectedUser,
+    "app":        flagApp ?? "unknown",
+    "focus":      flagFocus ?? "unknown",
+    "timeBucket": activeTriggers.joined(separator: ","),
+    "edgarState": "\(edgarState)",
+    "lighthouse": activeLighthouse?.text ?? "none"
+]
+runContext.merge(decaySnapshot.contextFields) { _, new in new }
 let run = SynapseCore.RunLog(
     timestamp: ISO8601DateFormatter().string(from: Date()),
     input: userQuery,
@@ -330,15 +333,7 @@ let run = SynapseCore.RunLog(
     chosenTone: chosenTone,
     chosenDomain: chosenDomain,
     assembledPrompt: finalPrompt,
-    context: [
-        "user":       selectedUser,
-        "app":        flagApp ?? "unknown",
-        "focus":      flagFocus ?? "unknown",
-        "timeBucket": activeTriggers.joined(separator: ","),
-        "rotScore":   String(format: "%.4f", rotScore),
-        "edgarState": "\(edgarState)",
-        "lighthouse": activeLighthouse?.text ?? "none"
-    ]
+    context: runContext
 )
 core.logRun(run)
 

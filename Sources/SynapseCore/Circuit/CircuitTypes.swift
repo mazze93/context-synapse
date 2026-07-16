@@ -261,8 +261,12 @@ public struct CircuitEdge: Sendable, Codable, Equatable {
     }
 
     /// Returns a copy with updated weight (edges are immutable from outside the circuit).
+    /// Copy with a new weight, preserving `id` — edge identity must survive
+    /// weight updates or callers holding the ID lose their handle.
     public func withWeight(_ newWeight: Double) -> CircuitEdge {
-        CircuitEdge(source: sourceID, target: targetID, weight: newWeight)
+        var copy = self
+        copy.weight = min(1.0, max(0.0, newWeight))
+        return copy
     }
 }
 
