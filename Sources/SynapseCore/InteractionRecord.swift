@@ -6,7 +6,7 @@ import Foundation
 // successWeight maps observable system events to utility signals.
 // Design ref: CONTEXT-SYNAPSE-OPS-MANUAL §4.4
 
-public enum InteractionEventType: String, Codable, CaseIterable {
+public enum InteractionEventType: String, Codable, CaseIterable, Sendable {
     case gitCommit         = "git.commit"
     case fileSave          = "file.save"
     case buildSuccess      = "build.success"
@@ -30,7 +30,7 @@ public enum InteractionEventType: String, Codable, CaseIterable {
     }
 }
 
-public struct InteractionRecord: Codable, Equatable {
+public struct InteractionRecord: Codable, Equatable, Sendable {
     public let id: UUID
     public let timestamp: Date
     public let eventType: InteractionEventType

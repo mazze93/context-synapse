@@ -49,6 +49,25 @@ public struct SynapseWeightState {
         self.distanceStrategy = distanceStrategy
     }
 
+    /// Restore a session-persistent state from a SynapseSnapshot
+    /// (SynapseManager, v0.4). Interaction history and clocks survive across
+    /// process invocations — the fix for the ephemeral-state class of bugs.
+    public init(
+        restoring snapshot: SynapseSnapshot,
+        sessionStart: Date,
+        distanceStrategy: SemanticDistanceStrategy = StructuralHeuristicDistance()
+    ) {
+        self.synapseId = snapshot.id
+        self.isLighthouse = snapshot.isLighthouse
+        self.childCount = snapshot.childCount
+        self.rotScore = snapshot.rotScore
+        self.requiresCauterization = snapshot.rotScore >= DecayConstants.rotCauterizeThreshold
+        self.interactions = snapshot.interactions
+        self.lastInteractionAt = snapshot.lastInteractionAt
+        self.sessionStart = sessionStart
+        self.distanceStrategy = distanceStrategy
+    }
+
     // MARK: - Interaction recording
     public mutating func record(_ event: InteractionEventType) {
         let record = InteractionRecord(eventType: event, synapseId: synapseId)

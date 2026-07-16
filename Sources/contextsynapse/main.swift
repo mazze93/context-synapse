@@ -66,6 +66,26 @@ if let refereeIdx = args.firstIndex(of: "--referee"), refereeIdx + 1 < args.coun
     exit(0)
 }
 
+// MARK: - --rsa
+// Render the session's RSA state: latest similarity heatmap over
+// [lighthouse + tracked synapses] and the anchor-saliency sparkline across
+// epochs. This is the evidence layer — drift claims point here.
+
+if args.contains("--rsa") {
+    let manager = core.makeSynapseManager()
+    let epochs = await manager.epochs
+    if let latest = epochs.last {
+        print(RSARenderer.heatmap(latest))
+        print(RSARenderer.saliencyStrip(epochs))
+    } else if core.loadLighthouseRecord() == nil {
+        print("No lighthouse set — RSA epochs are only meaningful relative to an anchor.")
+        print("Set one: contextsynapse --lighthouse \"<your primary goal>\"")
+    } else {
+        print(RSARenderer.saliencyStrip(epochs))
+    }
+    exit(0)
+}
+
 // MARK: - Export/Import
 
 let exportIndex = args.firstIndex(of: "--export")
@@ -185,6 +205,7 @@ guard let userQuery = providedQuery?.trimmingCharacters(in: .whitespacesAndNewli
     fputs("       contextsynapse --lighthouse \"<your primary goal>\"\n", stderr)
     fputs("       contextsynapse --resync\n", stderr)
     fputs("       contextsynapse --referee functional|abrasive\n", stderr)
+    fputs("       contextsynapse --rsa   (render session RSA heatmap + anchor saliency strip)\n", stderr)
     fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...] [--user <id>]\n", stderr)
     fputs("       contextsynapse --import <input-file.json> [--merge] [--user <id>]\n", stderr)
     exit(1)
@@ -237,13 +258,13 @@ let chosenIntent = flagIntent ?? core.weightedPick(intentScores) ?? "Create"
 let chosenTone   = flagTone   ?? core.weightedPick(toneScores)   ?? "Concise"
 let chosenDomain = flagDomain ?? core.weightedPick(domainScores) ?? "Work"
 
-// MARK: - Rot computation
-// Load lighthouse and compute rot score for this query.
-// SynapseWeightState is ephemeral per-query here, so the drift clock is
-// anchored to the LIGHTHOUSE (record.setAt) via driftReference — a synapse
-// born microseconds ago has tDrift ≈ 0 and tanh(0) = 0, so measured against
-// its own clock rot can never fire and Edgar stays perched forever.
-// SynapseManager will own session-level persistence in v0.4.
+// MARK: - Rot computation (v0.4: SynapseManager owns session state)
+// The manager persists per-synapse clocks and interaction history across
+// invocations, wires the SynapticCircuit backward pass, and snapshots an
+// RSA epoch on every observation (view with --rsa). Drift clocks: a new
+// thread of attention measures from the lighthouse's setAt; a revisited
+// one from its own last interaction. Never from a just-born synapse —
+// tanh(0) = 0 and Edgar would stay perched forever.
 
 let currentContent = SynapseContent(
     id: UUID().uuidString,
@@ -259,19 +280,10 @@ var rotScore: Double = 0.0
 var decayWeightNow: Double = 1.0
 var edgarState: RavenState = .dormant
 
-if let lighthouse = activeLighthouse {
-    var weightState = SynapseWeightState(
-        synapseId: currentContent.id,
-        isLighthouse: false
-    )
-    weightState.recomputeRotScore(
-        content: currentContent,
-        lighthouse: lighthouse,
-        driftReference: activeLighthouseRecord?.setAtDate
-    )
-    weightState.record(.fileSave)
-    rotScore = weightState.rotScore
-    decayWeightNow = weightState.finalWeight()
+let manager = core.makeSynapseManager()
+if let epoch = await manager.observe(currentContent, event: .fileSave) {
+    rotScore = max(0.0, min(1.0, 1.0 - epoch.lighthouseSaliency))
+    decayWeightNow = epoch.observedDecayWeight
     edgarState = RavenState.from(rotScore: rotScore, lighthouseSet: true)
 }
 
