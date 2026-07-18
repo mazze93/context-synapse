@@ -6,7 +6,7 @@
 Read PLAN.md then DECISIONS.md, continue at first unchecked phase.
 
 - [ ] **A. Scaffold** — journal + branch
-- [ ] **B. Unbounded prior growth** — renormalization cap + PriorGrowthTests
+- [x] **B. Unbounded prior growth** — renormalization cap + PriorGrowthTests (4 tests green)
 - [ ] **C. Silent GUI write failures** — Bool-returning saves + AppViewModel error surface
 - [ ] **D. emitDriftEvent stdout** — injectable sink, stderr default
 - [ ] **E. Multi-process write collision** — document + CLAUDE.md table + full build/test/smoke

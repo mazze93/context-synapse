@@ -194,6 +194,25 @@ public struct Prior: Codable, Equatable {
         let s = alpha + beta
         return s > 0 ? alpha / s : 0.5
     }
+
+    /// Upper bound on accumulated evidence (alpha + beta). Without a cap the
+    /// Beta parameters grow without bound across a long feedback history, which
+    /// (a) ossifies the prior so recent feedback barely moves it, and (b) lets
+    /// the serialized values drift ever larger on disk. See Known Issues.
+    public static let maxEvidence: Double = 200.0
+
+    /// Bound total evidence while preserving the mean. When alpha + beta
+    /// exceeds `maxEvidence`, scale both down by the same factor: the ratio
+    /// alpha/(alpha+beta) — and thus `probability()` and every mapped weight —
+    /// is unchanged, but the distribution stays responsive to new feedback.
+    /// This is a bounded exponential-forgetting behaviour, not a hard clamp.
+    public mutating func renormalizeIfSaturated(cap: Double = Prior.maxEvidence) {
+        let total = alpha + beta
+        guard total > cap, total > 0 else { return }
+        let scale = cap / total
+        alpha *= scale
+        beta *= scale
+    }
 }
 
 // MARK: - Priors collection
@@ -485,6 +504,9 @@ public class SynapseCore {
             } else {
                 prior.beta += 1.0
             }
+            // Bound accumulated evidence (mean-preserving) so priors stay
+            // responsive and on-disk values don't grow without limit.
+            prior.renormalizeIfSaturated()
             map[dictKey] = prior
         }
         bump(dictKey: chosenIntent, in: &w.priors.intents)
