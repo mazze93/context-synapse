@@ -37,6 +37,14 @@ Each run it:
 
 All weights and priors live in `~/Library/Application Support/ContextSynapse/users/default/config.json` — a plain JSON file you can read, edit, or reset at any time.
 
+> **Single-writer assumption.** State is persisted with atomic file writes, but
+> there is **no cross-process lock**. Run exactly one writer at a time per user
+> namespace — do not run the CLI and the GUI (or two CLI invocations) against
+> the same user concurrently. Each writes the whole file; a concurrent pair can
+> silently lose one side's update (last-writer-wins). Separate `--user`
+> namespaces are independent and safe to run in parallel. File locking is
+> tracked for v1.0.
+
 ## Quick start
 
 ### Prerequisites
@@ -152,9 +160,7 @@ The suite (`BayesianConvergenceTests`) covers Bayesian convergence, cosine simil
 
 | Issue | Severity | Target |
 |-------|----------|--------|
-| Silent write failures (no UI error surface in GUI) | Medium | v1.0 |
-| Unbounded prior growth (alpha/beta accumulate indefinitely) | Low | v1.0 |
-| Multi-process write collision (no file lock; single-writer assumed) | Low | v1.0 |
+| Multi-process write collision (no file lock — see the single-writer note above) | Low | v1.0 |
 
 See [ROADMAP.md](ROADMAP.md) for the full version plan, architecture decision log, and v0.4–v1.0 milestones.
 

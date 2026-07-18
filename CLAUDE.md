@@ -289,13 +289,13 @@ a lighthouse is loaded.
 
 | Issue | Severity | Target | Notes |
 |-------|----------|--------|-------|
-| Silent write failures in GUI | Medium | v1.0 | No error surface in AppViewModel for disk I/O failures |
-| Unbounded prior growth | Low | v1.0 | alpha/beta accumulate indefinitely; add EMA decay |
-| Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption must be documented prominently |
+| ~~Silent write failures in GUI~~ | Fixed | — | `saveWeights`/`saveRegions`/`logRun` return `Bool`; `AppViewModel.lastError` + `ContentView` banner surface disk-I/O failures |
+| ~~Unbounded prior growth~~ | Fixed | — | `Prior.renormalizeIfSaturated` caps `alpha+beta` at `Prior.maxEvidence` (200), mean-preserving; applied in `applyFeedbackUpdate` |
+| Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption now documented prominently (README + `saveWeights` doc comment). Enforcement (lock) still v1.0 |
 | ~~`minutesInDrift` hardcoded to 15~~ | Fixed | — | Now computed from `LighthouseRecord.setAt` |
 | `RegionModel.swift` duplicates `canonicalVector` | Intentional | — | Extension separation design; creates drift risk — keep in sync manually |
 | `SynapseCore.swift` is a ~900-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
-| `emitDriftEvent` in `SynapticCircuit` writes to stdout | Technical debt | v0.4 | Replace with injected RunLog writer at construction |
+| ~~`emitDriftEvent` in `SynapticCircuit` writes to stdout~~ | Fixed | — | Injectable `driftSink` at construction; default `stderrDriftSink` (off the machine-readable stdout channel) |
 
 ---
 
