@@ -71,11 +71,19 @@ final class AppViewModel: ObservableObject {
             assembledPrompt: prompt,
             context: ["ui": "macapp"]
         )
+<<<<<<< New base: fix(core): bound unbounded prior growth (mean-preserving renormalization)
         if !core.logRun(run) {
             lastError = "Failed to write run log to disk (see stderr)."
         } else {
             lastError = nil
         }
+||||||| Common ancestor
+        core.logRun(run)
+=======
+        if !core.logRun(run) {
+            lastError = "Failed to write run log to disk (see stderr)."
+        }
+>>>>>>> Current commit: fix(gui): surface disk-I/O failures instead of swallowing them
     }
 
     func saveConfig() {

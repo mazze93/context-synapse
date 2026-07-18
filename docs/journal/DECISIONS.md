@@ -44,6 +44,7 @@
   ratio keeps `probability()` and the mapped weight stable while bounding
   evidence weight — independent clamps would silently shift the mean · Reverse:
   remove the cap check in `applyFeedbackUpdate`'s `bump`.
+<<<<<<< New base: fix(core): bound unbounded prior growth (mean-preserving renormalization)
 - 2026-07-18 · touchstone pass on the prior-growth cap: HELD · probed
   composition (is `applyFeedbackUpdate` the only unbounded accumulator? — yes;
   circuit `SynapticPrior` already self-caps via `isOssified`, import merge
@@ -79,3 +80,18 @@
   marginal value) · added to PR #22 since it closes that PR's own documented
   perimeter · Reverse: drop `baseOverride` + delete the test; prod path
   unchanged.
+||||||| Common ancestor
+=======
+- 2026-07-18 · touchstone pass on the prior-growth cap: HELD · probed
+  composition (is `applyFeedbackUpdate` the only unbounded accumulator? — yes;
+  circuit `SynapticPrior` already self-caps via `isOssified`, import merge
+  averages) and spec (does `mapPriorToWeight` depend only on the ratio? — yes,
+  `probability()` only, so renorm leaves weights unchanged) · perimeter: GUI
+  error banner not driven against a real disk failure (no GUI test target);
+  cap=200 is policy not correctness.
+- 2026-07-18 · Silent GUI write failures: `saveWeights`/`saveRegions`/`logRun`
+  now `@discardableResult -> Bool` (CLI discards, unaffected); `AppViewModel`
+  gains `@Published lastError`, set on failure and shown as a dismissable
+  banner in `ContentView` · disk-I/O errors previously only reached stderr,
+  invisible in the GUI · Reverse: restore `Void` returns and drop `lastError`.
+>>>>>>> Current commit: fix(gui): surface disk-I/O failures instead of swallowing them

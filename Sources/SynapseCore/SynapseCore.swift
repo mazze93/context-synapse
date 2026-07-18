@@ -414,6 +414,7 @@ public class SynapseCore {
         return defaults
     }
     
+<<<<<<< New base: fix(core): bound unbounded prior growth (mean-preserving renormalization)
     /// Persist weights atomically. Returns `false` on failure (already logged
     /// to stderr) so a GUI caller can surface disk-I/O errors instead of them
     /// vanishing silently. CLI callers may discard the result.
@@ -425,6 +426,15 @@ public class SynapseCore {
     ///   File locking is tracked for v1.0 (Known Issues).
     @discardableResult
     public func saveWeights(_ w: Weights) -> Bool {
+||||||| Common ancestor
+    public func saveWeights(_ w: Weights) {
+=======
+    /// Persist weights atomically. Returns `false` on failure (already logged
+    /// to stderr) so a GUI caller can surface disk-I/O errors instead of them
+    /// vanishing silently. CLI callers may discard the result.
+    @discardableResult
+    public func saveWeights(_ w: Weights) -> Bool {
+>>>>>>> Current commit: fix(gui): surface disk-I/O failures instead of swallowing them
         do {
             let data = try JSONEncoder().encode(w)
             try data.write(to: configURL, options: .atomic)
