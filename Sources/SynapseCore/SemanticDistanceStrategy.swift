@@ -22,7 +22,7 @@ public protocol SemanticDistanceStrategy {
 // Fast, zero dependencies, works for code-centric sessions.
 // Limitation: blind to conceptual drift not manifest in file/function names.
 
-public struct StructuralHeuristicDistance: SemanticDistanceStrategy {
+public struct StructuralHeuristicDistance: SemanticDistanceStrategy, Sendable {
     public init() {}
 
     public func distance(from content: SynapseContent, to lighthouse: SynapseContent) -> Double {

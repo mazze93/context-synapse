@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ContextSynapse — local-first Bayesian prompt orchestration</title>
+<meta name="description" content="A research-grade, local-first Bayesian prompt orchestration engine. Lighthouse anchors, context rot scoring, and Edgar — the raven that watches your drift.">
+<style>
+  :root {
+    --bg: #0b0d12;
+    --bg-raise: #12151d;
+    --bg-panel: #161a24;
+    --ink: #c9d3e0;
+    --ink-dim: #6b7689;
+    --ink-faint: #3d4657;
+    --cyan: #4fd8e8;      /* perched — ANSI 51 */
+    --purple: #9d7bdc;    /* dormant */
+    --yellow: #e8c74f;    /* stirring */
+    --orange: #e8944f;    /* alarmed */
+    --red: #e85a4f;       /* cauterize */
+    --amber: #f0b445;     /* the lighthouse beam — second voice of the palette */
+    --green: #6fce8f;
+    --border: #232a38;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --max: 62rem;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--cyan); color: var(--bg); }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 1.5rem; }
+
+  /* ── scanline texture ─────────────────────────────── */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.12) 2px 3px);
+    opacity: .35;
+  }
+
+  /* ── top bar ──────────────────────────────────────── */
+  nav {
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(6px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  nav .wrap { display: flex; align-items: center; gap: 1.5rem; height: 3.2rem; }
+  nav .brand { color: var(--ink); font-weight: 700; letter-spacing: .02em; }
+  nav .brand .tilde { color: var(--cyan); }
+  nav .links { margin-left: auto; display: flex; gap: 1.25rem; font-size: .85rem; }
+  nav .links a { color: var(--ink-dim); }
+  nav .links a:hover { color: var(--cyan); text-decoration: none; }
+
+  /* ── hero ─────────────────────────────────────────── */
+  header { padding: 5rem 0 4rem; text-align: center; position: relative; overflow: hidden; }
+  header::after {
+    content: ""; position: absolute; left: 50%; top: -30%;
+    width: 60rem; height: 60rem; transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgba(79,216,232,.07), transparent 70%);
+    pointer-events: none;
+  }
+  .raven {
+    font-size: clamp(.8rem, 2vw, 1.05rem);
+    line-height: 1.25;
+    color: var(--cyan);
+    white-space: pre;
+    display: inline-block;
+    text-align: left;
+    text-shadow: 0 0 18px rgba(79,216,232,.35);
+    margin-bottom: 1.8rem;
+  }
+  .raven .eye { color: #fff; animation: blink 6s step-end infinite; }
+  .raven .mote { color: var(--purple); animation: drift 4s ease-in-out infinite alternate; display: inline-block; }
+  @keyframes blink { 0%, 92%, 100% { opacity: 1 } 94%, 97% { opacity: .15 } }
+  @keyframes drift { from { transform: translateY(0) } to { transform: translateY(-3px) } }
+  h1 { font-size: clamp(1.6rem, 4.5vw, 2.4rem); letter-spacing: .01em; color: #eef3fa; }
+  h1 .caret { color: var(--cyan); animation: caret 1.1s step-end infinite; }
+  @keyframes caret { 50% { opacity: 0 } }
+  .tagline { color: var(--ink-dim); margin: 1rem auto 0; max-width: 38rem; font-size: 1rem; }
+  .tagline strong { color: var(--ink); font-weight: 600; }
+  .hero-ctas { margin-top: 2.2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: .6rem 1.3rem; border: 1px solid var(--border);
+    border-radius: 6px; color: var(--ink); font-size: .9rem; background: var(--bg-raise);
+    transition: border-color .15s, transform .15s;
+  }
+  .btn:hover { border-color: var(--cyan); text-decoration: none; transform: translateY(-1px); }
+  .btn.primary { border-color: var(--cyan); color: var(--cyan); }
+  .research-tag {
+    display: inline-block; margin-top: 2.4rem; font-size: .78rem; color: var(--ink-dim);
+    border: 1px dashed var(--ink-faint); border-radius: 999px; padding: .3rem 1rem;
+  }
+
+  /* ── sections ─────────────────────────────────────── */
+  section { padding: 4rem 0; border-top: 1px solid var(--border); }
+  .kicker { color: var(--cyan); font-size: .8rem; letter-spacing: .18em; text-transform: uppercase; }
+  h2 { font-size: 1.4rem; color: #eef3fa; margin: .5rem 0 1.4rem; }
+  p.lede { color: var(--ink-dim); max-width: 44rem; }
+  p.lede em { color: var(--ink); font-style: normal; }
+
+  /* ── edgar live demo ──────────────────────────────── */
+  .term {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: .45rem; padding: .6rem .9rem;
+    border-bottom: 1px solid var(--border); background: var(--bg-raise);
+  }
+  .dot { width: .68rem; height: .68rem; border-radius: 50%; background: var(--ink-faint); }
+  .dot.r { background: #d95f5f } .dot.y { background: #d9b45f } .dot.g { background: #6fce8f }
+  .term-title { margin-left: .5rem; color: var(--ink-dim); font-size: .78rem; }
+  .term-body { padding: 1.4rem 1.6rem; overflow-x: auto; }
+  .term-body pre { font-family: var(--mono); font-size: .88rem; line-height: 1.5; white-space: pre; }
+
+  #edgar-demo { text-align: center; padding: 2rem 1rem; overflow-x: auto; }
+  #edgar-scene {
+    white-space: pre; display: inline-block; text-align: left;
+    font-size: clamp(.55rem, 1.6vw, .85rem); line-height: 1.3;
+    color: var(--ink-faint);
+  }
+  .sc-e { color: var(--cyan); text-shadow: 0 0 12px rgba(79,216,232,.4); }
+  .sc-l { color: var(--amber); }
+  .sc-b { color: var(--amber); text-shadow: 0 0 16px rgba(240,180,69,.6); }
+  .sc-w { color: #4a6f8f; }
+  .sc-r { color: var(--ink-faint); }
+  .sc-z { color: #ffffff; text-shadow: 0 0 14px rgba(255,255,255,.6); }
+  #edgar-status { margin-top: 1.2rem; font-size: .9rem; transition: color .6s; }
+  #edgar-note { margin-top: .6rem; color: var(--ink-dim); font-size: .78rem; min-height: 1.2em; }
+  .rotbar { letter-spacing: .05em; }
+
+  /* ── feature grid ─────────────────────────────────── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+  .card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.4rem 1.5rem; transition: border-color .2s;
+  }
+  .card:hover { border-color: var(--ink-faint); }
+  .card .glyph { font-size: 1.15rem; }
+  .card h3 { font-size: .95rem; color: #eef3fa; margin: .6rem 0 .45rem; }
+  .card p { color: var(--ink-dim); font-size: .85rem; }
+  .card code { color: var(--cyan); font-size: .82rem; }
+
+  /* ── math ─────────────────────────────────────────── */
+  .math-block {
+    background: var(--bg-panel); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
+    border-radius: 8px; padding: 1.3rem 1.6rem; overflow-x: auto; margin-top: 1.2rem;
+  }
+  .math-block pre { font-size: .88rem; line-height: 1.9; color: var(--ink); white-space: pre; }
+  .math-block .c { color: var(--ink-dim); }
+  .math-block .hl { color: var(--cyan); }
+
+  /* ── boundary ─────────────────────────────────────── */
+  .boundary {
+    border: 1px solid color-mix(in srgb, var(--red) 40%, var(--border));
+    background: color-mix(in srgb, var(--red) 5%, var(--bg-panel));
+    border-radius: 10px; padding: 1.6rem 1.8rem; max-width: 44rem;
+  }
+  .boundary h3 { color: var(--red); font-size: .95rem; letter-spacing: .05em; }
+  .boundary p { color: var(--ink-dim); font-size: .88rem; margin-top: .7rem; }
+  .boundary p strong { color: var(--ink); }
+
+  /* ── install ──────────────────────────────────────── */
+  .install pre { font-size: .88rem; line-height: 1.8; }
+  .install .p { color: var(--green); }
+  .install .c { color: var(--ink-dim); }
+
+  footer {
+    border-top: 1px solid var(--border); padding: 2.5rem 0 3.5rem;
+    color: var(--ink-dim); font-size: .82rem;
+  }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }
+
+  @media (max-width: 40rem) {
+    nav .links { gap: .8rem; }
+    header { padding: 3.5rem 0 3rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .raven .eye, .raven .mote, h1 .caret { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <span class="brand"><span class="tilde">~/</span>context-synapse</span>
+    <div class="links">
+      <a href="#edgar">edgar</a>
+      <a href="#math">the math</a>
+      <a href="#design">design</a>
+      <a href="#install">install</a>
+      <a href="https://github.com/mazze93/context-synapse">github</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <div class="raven" aria-hidden="true">    <span class="mote">◈</span>
+    ╔▓██▓╗
+    ║█<span class="eye">◉</span>█║
+   ╱▓███▓╲
+  ╱▓▓·:·▓▓╲
+      ▓▓</div>
+    <h1>ContextSynapse<span class="caret">▌</span></h1>
+    <p class="tagline">A <strong>local-first Bayesian prompt orchestration engine</strong> that treats
+    prompting as cognition — with lighthouse anchors, context-rot scoring, and a raven
+    named Edgar who watches you drift.</p>
+    <div class="hero-ctas">
+      <a class="btn primary" href="#install">$ swift build</a>
+      <a class="btn" href="https://github.com/mazze93/context-synapse">source ↗</a>
+    </div>
+    <div><span class="research-tag">research-grade · built by and for a neurodivergent developer · not a product</span></div>
+  </div>
+</header>
+
+<section id="edgar">
+  <div class="wrap">
+    <span class="kicker">the referee &amp; the lighthouse</span>
+    <h2>Edgar renders on every query. His state <em>is</em> the system's state.</h2>
+    <p class="lede">ContextSynapse picks up the slack where the prefrontal cortex drops the ball.
+    Set a <em style="color:var(--amber)">lighthouse</em> — your primary goal, on <em>your explicit
+    choice</em>, never inferred — and every query is measured against it. As your context rots,
+    the storm rises and Edgar stirs: the friend who calls you out when you're drifting,
+    and still has your back.</p>
+
+    <div class="term" style="margin-top:1.6rem">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">edgar &amp; the lighthouse — live rot simulation</span>
+      </div>
+      <div id="edgar-demo">
+        <div id="edgar-scene" aria-hidden="true"></div>
+        <div id="edgar-status"></div>
+        <div id="edgar-note"></div>
+      </div>
+    </div>
+
+    <div class="term" style="margin-top:1rem">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">a real session</span>
+      </div>
+      <div class="term-body"><pre><span style="color:var(--green)">$</span> contextsynapse --lighthouse <span style="color:var(--yellow)">"ship the v0.3 bedrock release"</span>
+<span style="color:var(--cyan)">⚓ Lighthouse set: "ship the v0.3 bedrock release"</span>
+<span style="color:var(--ink-dim)">edgar is watching.</span>
+
+<span style="color:var(--green)">$</span> contextsynapse <span style="color:var(--yellow)">"refactor the decay math"</span> --app Zed
+<span style="color:var(--cyan)">⚓ Lighthouse: ship the v0.3 bedrock release — saliency 100% — last touched 0min ago</span>
+[Concise] [Create] [Work]: refactor the decay math
+
+<span style="color:var(--cyan)">⚓ ship the v0.3 bedrock release  rot [░░░░░░░░░░░░░░░░░░░░] 0%  clean</span>
+
+<span style="color:var(--green)">$</span> contextsynapse --referee abrasive   <span style="color:var(--ink-dim)"># opt-in friction. your call, always.</span>
+referee mode set: abrasive</pre></div>
+    </div>
+  </div>
+</section>
+
+<section id="math">
+  <div class="wrap">
+    <span class="kicker">the math</span>
+    <h2>Synapses decay. Rot compounds. Lighthouses hold the floor.</h2>
+    <p class="lede">Every weight, prior, and similarity score is plain JSON on your disk.
+    Nothing hidden, nothing hosted. The whole engine is these four equations:</p>
+    <div class="math-block"><pre><span class="c">// utility — recency-weighted success</span>
+U(s,t)       = Σ successᵢ · e^(−μ(t−tᵢ)) / Σ e^(−μ(t−tᵢ))
+
+<span class="c">// decay — connected synapses decay slower, rotting ones faster</span>
+λ(s)         = λ_base · (1 − conn) · (1 + rot·amplifier)
+W_decay(s,t) = W_base · e^(−λ(s)·Δt) · U(s,t)
+
+<span class="c">// rot — semantic distance × drift time × velocity</span>
+RotScore(s)  = D(content, lighthouse) · tanh(T_drift/T_thresh) · V
+
+<span class="c">// the floor — your primary goal is always findable</span>
+W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotScore))</pre></div>
+  </div>
+</section>
+
+<section id="design">
+  <div class="wrap">
+    <span class="kicker">design constraints</span>
+    <h2>Non-negotiables, not features</h2>
+    <div class="grid" style="margin-top:1.4rem">
+      <div class="card">
+        <span class="glyph">⚓</span>
+        <h3>Consent-gated anchors</h3>
+        <p>Lighthouses are set on confirmed user choice only — never via automatic
+        inference. <code>ADR-001</code> is permanent.</p>
+      </div>
+      <div class="card">
+        <span class="glyph">⌂</span>
+        <h3>Local-first</h3>
+        <p>Zero required network calls. Zero dependencies — pure Swift stdlib.
+        State lives in <code>~/Library/Application Support</code>, readable as JSON.</p>
+      </div>
+      <div class="card">
+        <span class="glyph">◫</span>
+        <h3>Interpretability first</h3>
+        <p>Beta priors, decay weights, cosine similarity matrices — every number
+        the engine uses is inspectable and exportable.</p>
+      </div>
+      <div class="card">
+        <span class="glyph">⚡</span>
+        <h3>Fragility is intentional</h3>
+        <p>Fault injection is a first-class feature. Controlled weak points expose
+        assumptions — a calibration suite measures how the system degrades.</p>
+      </div>
+      <div class="card">
+        <span class="glyph">◉</span>
+        <h3>Edgar, the referee</h3>
+        <p>Silent by default. Abrasive only if you ask (<code>--referee abrasive</code>) —
+        and only on distraction, with a cooldown. Never on collapse.</p>
+      </div>
+      <div class="card">
+        <span class="glyph">Σ</span>
+        <h3>Prompting as cognition</h3>
+        <p>Prompt assembly encodes intent, environment, and history under Bayesian
+        weights that converge on your feedback. Not string concatenation.</p>
+      </div>
+    </div>
+
+    <div class="boundary" style="margin-top:2rem">
+      <h3>■ HARD STOP — what this will never do</h3>
+      <p>ContextSynapse does <strong>not</strong> model cognitive, emotional, or collapse states.
+      Operational context inference about the human is permanently out of scope — an ethical
+      and privacy boundary, not a roadmap gap. The referee reacts to <strong>what you're working
+      on</strong>, never to <strong>how you're doing</strong>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="install">
+  <div class="wrap">
+    <span class="kicker">install</span>
+    <h2>macOS 13+ · Swift 5.8+ · no dependencies</h2>
+    <div class="term" style="margin-top:1.4rem">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">zsh</span>
+      </div>
+      <div class="term-body"><pre><span class="p">$</span> git clone https://github.com/mazze93/context-synapse
+<span class="p">$</span> cd context-synapse
+<span class="p">$</span> swift build -c release
+<span class="p">$</span> .build/release/contextsynapse --lighthouse <span style="color:var(--yellow)">"your primary goal"</span>
+<span class="c"># edgar is watching.</span></pre></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Mazze LeCzzare · MIT License · breaking changes possible until v1.0</span>
+    <span><a href="https://github.com/mazze93/context-synapse">github.com/mazze93/context-synapse</a> · <a href="https://mazzeleczzare.com">mazzeleczzare.com</a></span>
+  </div>
+</footer>
+
+<script>
+// Edgar & the lighthouse — live rot simulation.
+// States and thresholds mirror RavenRenderer.swift. The loop: context rots,
+// the storm rises; at rot ≥ 0.82 (cauterize) Edgar flies to the lighthouse,
+// the beam answers, and the context resyncs. Then it begins again.
+(function () {
+  const scene  = document.getElementById("edgar-scene");
+  const status = document.getElementById("edgar-status");
+  const note   = document.getElementById("edgar-note");
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  const W = 52, H = 10;               // sky grid; lighthouse appended at right
+  const LH = [                        // the lighthouse, lamp on row 0
+    "   ◆   ",
+    "  ╱█╲  ",
+    "  ═█═  ",
+    "  ▓░▓  ",
+    "  █▓█  ",
+    "  ▓░▓  ",
+    "  █▓█  ",
+    " ▄███▄ ",
+    "▄▄▄▄▄▄▄",
+    "▓▓▓▓▓▓▓",
+  ];
+  const EDGAR = ["   ◈", "   ╔▓██▓╗", "   ║█◉█║", "  ╱▓███▓╲", " ╱▓▓·:·▓▓╲", "     ▓▓"];
+  const EDGAR_ROW = 4, EDGAR_COL = 2; // top-left of the perched bird
+  const STATES = [
+    { max: 0.25, name: "perched",   color: "--cyan",   note: "clean. on target." },
+    { max: 0.50, name: "watching",  color: "--cyan",   note: "drift detected. edgar has noticed." },
+    { max: 0.75, name: "stirring",  color: "--yellow", note: "feathers ruffle. context is rotting." },
+    { max: 0.82, name: "alarmed",   color: "--orange", note: "far from the lighthouse now." },
+    { max: 9.99, name: "CAUTERIZE", color: "--red",    note: "rot ≥ 0.82 — return · promote · continue · dismiss" },
+  ];
+
+  let rot = 0, tick = 0;
+  let phase = "rotting";              // rotting → flight → flash → rotting
+  let flightT = 0;                    // 0..1 progress of the flight
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function put(g, c, row, col, str, cls) {
+    for (let i = 0; i < str.length; i++) {
+      const x = col + i;
+      if (row < 0 || row >= H || x < 0 || x >= W + LH[0].length) continue;
+      if (str[i] !== " ") { g[row][x] = str[i]; c[row][x] = cls; }
+    }
+  }
+
+  function frame() {
+    const g = Array.from({ length: H }, () => Array(W + LH[0].length).fill(" "));
+    const c = Array.from({ length: H }, () => Array(W + LH[0].length).fill(""));
+
+    // rain — density follows rot
+    for (let r = 0; r < H - 2; r++)
+      for (let x = 0; x < W - 2; x++)
+        if (Math.random() < rot * 0.06) { g[r][x] = Math.random() < .5 ? "'" : "."; c[r][x] = "r"; }
+
+    // lightning — only deep in the storm
+    if (rot > 0.7 && Math.random() < 0.18) {
+      const bx = 8 + Math.floor(Math.random() * (W - 20));
+      put(g, c, 0, bx, "╲", "z"); put(g, c, 1, bx, "╱", "z"); put(g, c, 2, bx - 1, "╲", "z");
+    }
+
+    // the lighthouse
+    LH.forEach((row, r) => put(g, c, r, W, row, "l"));
+    put(g, c, 0, W + 3, "◆", "b");
+
+    // the beam: idle pulse, or full sweep during the flash
+    if (phase === "flash") {
+      put(g, c, 0, 2, "═".repeat(W + 1), "b");
+      put(g, c, 1, Math.floor(W * .3), "░".repeat(Math.floor(W * .7)), "b");
+    } else {
+      const pulse = [3, 6, 9, 6][tick % 4];
+      put(g, c, 0, W + 3 - pulse, "─".repeat(pulse - 1), "b");
+    }
+
+    // edgar: perched, or in flight toward the lamp
+    if (phase === "flight") {
+      const x = Math.floor(EDGAR_COL + 6 + (W - 10 - EDGAR_COL) * flightT);
+      const y = Math.max(0, Math.round(EDGAR_ROW - Math.sin(flightT * Math.PI) * 3));
+      put(g, c, y, x, tick % 2 ? "»◉«" : "›◉‹", "e");
+    } else if (phase !== "flash") {
+      EDGAR.forEach((row, r) => put(g, c, EDGAR_ROW + r, EDGAR_COL, row, "e"));
+    }
+
+    // the sea
+    for (let x = 0; x < W + LH[0].length; x++) {
+      const stormy = Math.random() < rot;
+      g[H - 1][x] = g[H - 1][x] === " " ? (stormy ? "≈" : (x % 3 ? "~" : "-")) : g[H - 1][x];
+      if (c[H - 1][x] === "") c[H - 1][x] = "w";
+    }
+
+    // run-length encode into spans
+    let html = "";
+    for (let r = 0; r < H; r++) {
+      let cur = "", buf = "";
+      const flush = () => { if (buf) html += cur ? `<span class="sc-${cur}">${buf}</span>` : buf; buf = ""; };
+      for (let x = 0; x < g[r].length; x++) {
+        if (c[r][x] !== cur) { flush(); cur = c[r][x]; }
+        buf += g[r][x];
+      }
+      flush(); html += "\n";
+    }
+    return html;
+  }
+
+  function render() {
+    const st = phase === "flash"
+      ? { name: "RESYNC", color: "--amber", note: "⚓ anchored. context restored. edgar returns." }
+      : STATES.find(s => rot < s.max) || STATES[STATES.length - 1];
+    scene.innerHTML = frame();
+    const filled = Math.round(rot * 20);
+    status.innerHTML = `⚓ ship the v0.3 bedrock release&nbsp;&nbsp;rot <span class="rotbar">[${"█".repeat(filled)}${"░".repeat(20 - filled)}]</span> ${Math.round(rot * 100)}%&nbsp;&nbsp;${st.name}`;
+    status.style.color = css(st.color);
+    note.textContent = phase === "flight" ? "rot ≥ 0.82 — edgar flies for the lighthouse." : st.note;
+  }
+
+  if (reduced) { rot = 0.42; render(); return; }
+  setInterval(() => {
+    tick++;
+    if (phase === "rotting") {
+      rot = Math.min(1, rot + 0.012);
+      if (rot >= 0.95) { phase = "flight"; flightT = 0; }
+    } else if (phase === "flight") {
+      flightT += 0.055;
+      if (flightT >= 1) phase = "flash";
+    } else if (phase === "flash") {
+      rot = Math.max(0, rot - 0.045);   // hold the beam — the resync is the payoff
+      if (rot === 0) phase = "rotting";
+    }
+    render();
+  }, 170);
+})();
+</script>
+
+</body>
+</html>

@@ -1,269 +1,215 @@
-# Context Synapse Installation Guide
-
-Complete installation and build instructions for the Context Synapse Swift project.
+# Context Synapse — Installation Guide
 
 ## Requirements
 
-### System Requirements
-- **macOS**: 12.0+ (Monterey or later)
-- **Xcode**: 14.0+ (for development)
-- **Swift**: 5.7+ toolchain
-- **Disk Space**: ~50MB for source + build artifacts
+- **macOS**: 13 (Ventura) or later
+- **Swift**: 5.8+ toolchain — ships with Xcode 15+, or install the [standalone Swift toolchain](https://swift.org/download/)
+- **Xcode**: 15+ (required only for the GUI app or for Xcode-based development)
+- **Disk space**: ~50 MB for source + build artifacts
 
-### Optional
-- Apple Developer account (for signing/notarizing the macOS app)
-- Git (for cloning the repository)
+No external package dependencies. `swift package resolve` is a no-op beyond the standard library.
 
-## Installation Methods
+---
 
-### Method 1: Build from Source (Recommended)
+## CLI — build from source
 
-#### 1. Clone the Repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/mazze93/context-synapse.git
 cd context-synapse
 ```
 
-#### 2. Build the CLI Tool
-
-**Debug Build** (for development):
-```bash
-swift build
-
-# Run the CLI
-.build/debug/contextsynapse --help
-```
-
-**Release Build** (optimized):
-```bash
-swift build -c release
-
-# Install to system path (optional)
-sudo cp .build/release/contextsynapse /usr/local/bin/
-```
-
-#### 3. Build the GUI Application
-
-**Option A: Using Xcode**
-```bash
-# Open the project in Xcode
-open Package.swift
-
-# In Xcode:
-# 1. Select "ContextSynapseApp" scheme
-# 2. Product → Build (⌘B)
-# 3. Product → Run (⌘R)
-```
-
-**Option B: Command Line**
-```bash
-swift build -c release --product ContextSynapseApp
-
-# The app bundle will be in:
-# .build/release/ContextSynapseApp.app
-```
-
-### Method 2: Quick Start with Swift PM
+### 2. Build
 
 ```bash
-# Build and run CLI in one command
-swift run contextsynapse --help
+# Release build (optimized — recommended)
+swift build -c release --product contextsynapse
 
-# Run with specific arguments
-swift run contextsynapse --feedback positive --intent Technical --domain Work
+# Debug build (for development)
+swift build --product contextsynapse
 ```
 
-## Usage
-
-### CLI Usage Examples
+### 3. Run
 
 ```bash
-# Apply positive feedback
-contextsynapse --feedback positive --intent Technical --domain Work --tone Formal
-
-# Apply negative feedback
-contextsynapse --feedback negative --intent Casual --tone Friendly
-
-# View current weights and state
-contextsynapse --status
-
-# Use custom config file
-contextsynapse --config ~/my-config.json --feedback positive --intent Learning
+.build/release/contextsynapse "Draft a reply to this email"
+# → [Concise] [Create] [Work]: Draft a reply to this email
 ```
 
-### GUI Application
-
-1. Launch the ContextSynapseApp
-2. Use the interactive weight grid to visualize context weights
-3. View real-time heatmap of intent probabilities
-4. Use keyboard shortcuts:
-   - `⌘+P`: Apply positive feedback
-   - `⌘+N`: Apply negative feedback
-   - `⌘+R`: Reload configuration
-
-## Configuration
-
-### Default Configuration Location
-
-```
-~/Library/Application Support/ContextSynapse/
-├── config.json          # User configuration and weights
-├── regions.json         # Context region vectors
-└── logs/               # Application logs
-```
-
-### Configuration File Format
-
-The `default_config.json` in the repository provides Bayesian priors:
-
-```json
-{
-  "priors": {
-    "intents": {
-      "Technical": 0.5,
-      "Casual": 0.3,
-      "Creative": 0.2
-    },
-    "domains": {
-      "Work": 0.6,
-      "Personal": 0.3,
-      "Learning": 0.1
-    },
-    "tones": {
-      "Formal": 0.4,
-      "Friendly": 0.4,
-      "Analytical": 0.2
-    }
-  },
-  "fault_probability": 0.6
-}
-```
-
-### Customizing Configuration
-
-1. Copy `default_config.json` to your config directory:
-   ```bash
-   mkdir -p "~/Library/Application Support/ContextSynapse"
-   cp default_config.json "~/Library/Application Support/ContextSynapse/config.json"
-   ```
-
-2. Edit the file to adjust:
-   - Prior probabilities for intents, domains, and tones
-   - Fault probability (for testing resilience)
-   - Add custom intents/domains/tones
-
-## Testing
-
-### Running Tests
+### 4. Install system-wide (optional)
 
 ```bash
-# Run all tests
-swift test
-
-# Run specific test
-swift test --filter BayesianConvergenceTests
-
-# Run with verbose output
-swift test --verbose
-```
-
-### Test Coverage
-
-The test suite includes:
-- Bayesian convergence validation
-- Fault injection handling
-- Cosine similarity computation
-- Region similarity matrix generation
-- Weight update correctness
-
-## Troubleshooting
-
-### Common Issues
-
-**Build fails with "Cannot find module"**:
-```bash
-# Clean build artifacts
-swift package clean
-swift package resolve
-swift build
-```
-
-**"Command not found: contextsynapse"**:
-```bash
-# Ensure the binary is in your PATH
-echo $PATH
-
-# Or use the full path
-.build/release/contextsynapse --help
-```
-
-**GUI app won't launch**:
-- Ensure macOS 12.0+ 
-- Check Console.app for crash logs
-- Try building in Xcode for better error messages
-
-**Permission denied when installing to /usr/local/bin**:
-```bash
-# Use sudo
 sudo cp .build/release/contextsynapse /usr/local/bin/
 
-# Or install to user bin
+# Or install to ~/bin without sudo
 mkdir -p ~/bin
 cp .build/release/contextsynapse ~/bin/
 echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-### Getting Help
+---
 
-- **Documentation**: See [README.md](README.md) for project overview
-- **Code Review**: See [REVIEW.md](REVIEW.md) for architecture details
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/mazze93/context-synapse/issues)
+## GUI app — build from source
 
-## Uninstallation
+The GUI (`ContextSynapseApp`) is a SwiftUI executable. Use Xcode to build a proper `.app` bundle with code signing; SPM produces an unsigned command-line executable.
+
+**Option A — Xcode (recommended for running the app)**
 
 ```bash
-# Remove CLI tool
+open Package.swift       # opens the package in Xcode
+```
+
+In Xcode:
+1. Select the `ContextSynapseApp` scheme.
+2. **Product → Build** (⌘B) or **Product → Run** (⌘R).
+
+**Option B — SPM command line** (produces an unsigned executable, not an `.app` bundle)
+
+```bash
+swift build -c release --product ContextSynapseApp
+.build/release/ContextSynapseApp
+```
+
+---
+
+## Build all targets
+
+```bash
+swift build -c release    # builds SynapseCore, contextsynapse, and ContextSynapseApp
+```
+
+---
+
+## Run the test suite
+
+```bash
+swift build               # required — some tests invoke the CLI binary directly
+swift test --parallel
+swift test --filter BayesianConvergenceTests   # run a specific suite
+```
+
+---
+
+## CLI reference (quick)
+
+```bash
+# Assemble a prompt (stochastic picks from current weights)
+contextsynapse "your query"
+
+# Force specific dimensions
+contextsynapse "your query" --intent Create --tone Technical --domain Work
+
+# Apply positive / negative feedback
+contextsynapse "your query" --feedback good
+contextsynapse "your query" --feedback bad
+
+# Contextual triggers
+contextsynapse "your query" --app Notes --focus DoNotDisturb --time 14:30
+
+# Multi-user namespaces
+contextsynapse "your query" --user alice
+
+# Export state
+contextsynapse --export snapshot.json --metadata project=myapp
+
+# Import state (replace or merge)
+contextsynapse --import snapshot.json
+contextsynapse --import snapshot.json --merge
+
+# Fault injection (resilience research)
+CONTEXT_SYNAPSE_FAULT_PROB=0.4 contextsynapse "test query"
+```
+
+Full flag reference is in [README.md](README.md).
+
+---
+
+## State location
+
+```
+~/Library/Application Support/ContextSynapse/
+└── users/
+    └── default/
+        ├── config.json     # weights + Bayesian priors (plain JSON)
+        ├── regions.json    # named embedding vectors
+        └── logs/           # per-run JSON logs
+```
+
+On first run, defaults are seeded automatically from the built-in `defaultWeights()`. You can also copy `default_config.json` from the repository to pre-populate the config:
+
+```bash
+mkdir -p ~/Library/Application\ Support/ContextSynapse/users/default
+cp default_config.json ~/Library/Application\ Support/ContextSynapse/users/default/config.json
+```
+
+The `config.json` format (all values start at `1.0` — uniform priors):
+
+```json
+{
+  "intents": { "Summarize": 1.0, "Create": 1.0, "Analyze": 1.0, "Brainstorm": 1.0, "ActionableSteps": 1.0 },
+  "tones":   { "Concise": 1.0, "Technical": 1.0, "Casual": 1.0, "Persuasive": 1.0, "Creative": 1.0 },
+  "domains": { "Work": 1.0, "Personal": 1.0, "GameDesign": 1.0, "Marketing": 1.0, "Writing": 1.0 },
+  "triggers": {
+    "app.Mail": { "Create": 1.6, "ActionableSteps": 1.2 },
+    "app.Notes": { "Create": 1.7, "Creative": 1.4 },
+    "time.morning": { "Analyze": 1.25 },
+    "focus.DoNotDisturb": { "Concise": 1.6 }
+  },
+  "priors": {
+    "intents":  { "Summarize": {"alpha": 1, "beta": 1}, "Create": {"alpha": 1, "beta": 1}, "Analyze": {"alpha": 1, "beta": 1}, "Brainstorm": {"alpha": 1, "beta": 1}, "ActionableSteps": {"alpha": 1, "beta": 1} },
+    "tones":    { "Concise": {"alpha": 1, "beta": 1}, "Technical": {"alpha": 1, "beta": 1}, "Casual": {"alpha": 1, "beta": 1}, "Persuasive": {"alpha": 1, "beta": 1}, "Creative": {"alpha": 1, "beta": 1} },
+    "domains":  { "Work": {"alpha": 1, "beta": 1}, "Personal": {"alpha": 1, "beta": 1}, "GameDesign": {"alpha": 1, "beta": 1}, "Marketing": {"alpha": 1, "beta": 1}, "Writing": {"alpha": 1, "beta": 1} }
+  }
+}
+```
+
+---
+
+## Troubleshooting
+
+**Build fails with "Cannot find module"**
+
+```bash
+swift package clean
+swift package resolve
+swift build -c release
+```
+
+**"command not found: contextsynapse"**
+
+```bash
+# Confirm binary exists
+ls .build/release/contextsynapse
+
+# Use absolute path, or install to PATH (see step 4 above)
+```
+
+**GUI app crashes on launch**
+
+- Confirm macOS 13+
+- Check Console.app for crash reports
+- Build in Xcode for richer diagnostics (Xcode scheme → Product → Run)
+
+**Permission denied installing to /usr/local/bin**
+
+Use `sudo`, or install to `~/bin` (no sudo required — see step 4 above).
+
+---
+
+## Uninstall
+
+```bash
+# Remove CLI
 sudo rm /usr/local/bin/contextsynapse
 
-# Remove configuration and data
+# Remove all state and logs
 rm -rf ~/Library/Application\ Support/ContextSynapse/
-
-# Remove GUI app
-rm -rf /Applications/ContextSynapseApp.app
 ```
 
-## Development
+---
 
-### Project Structure
+## Security
 
-```
-context-synapse/
-├── Package.swift                   # Swift Package Manager manifest
-├── Sources/
-│   ├── SynapseCore/               # Core Bayesian engine
-│   ├── contextsynapse/            # CLI executable
-│   └── ContextSynapseApp/         # macOS GUI app
-├── Tests/
-│   └── BayesianConvergenceTests/  # Test suite
-└── default_config.json            # Default configuration
-```
-
-### Building for Distribution
-
-```bash
-# Build release binary with optimizations
-swift build -c release -Xswiftc -O
-
-# Create distributable archive
-tar -czf context-synapse-macos.tar.gz \
-  -C .build/release \
-  contextsynapse
-```
-
-## Next Steps
-
-- Read [README.md](README.md) for usage examples and architecture
-- See [REVIEW.md](REVIEW.md) for code review and troubleshooting
-- Explore the source code in `Sources/`
-- Run tests to understand the Bayesian feedback system
+See [SECURITY.md](SECURITY.md) for the vulnerability disclosure policy, release artifact verification steps (SHA-256, SBOM, notarization), and supported versions.

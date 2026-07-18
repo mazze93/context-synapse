@@ -1,0 +1,8 @@
+# ContextSynapse landing page — Cloudflare Workers static assets.
+# Deploy (from site/):  npx wrangler deploy
+# First time:           npx wrangler login
+name = "contextsynapse-site"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = "./public"

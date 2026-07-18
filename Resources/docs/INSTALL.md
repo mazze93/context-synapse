@@ -8,6 +8,7 @@ This guide describes building the ContextSynapse package (with Bayesian priors a
 - Optional: Apple Developer account to sign/notarize .app
 
 ## Quick build (CLI)
+
 ```bash
 swift build
 .build/debug/context_synapse "Summarize my notes" --app Notes
@@ -35,7 +36,7 @@ cp .build/release/context_synapse /usr/local/bin/context_synapse
 
 ## Notes
 - If you change weight keys (add/remove intents/tones/domains), regenerate region vectors using canonicalVector helper or reset regions to defaults.
-- See `docs/REVIEW.md` for a two-pass review and known issues.
+- See `ROADMAP.md` (known issues) and `CHANGELOG.md` (history) in the repository root.
 
 
 ## Tests
