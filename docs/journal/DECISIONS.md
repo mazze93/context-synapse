@@ -57,6 +57,7 @@
   gains `@Published lastError`, set on failure and shown as a dismissable
   banner in `ContentView` · disk-I/O errors previously only reached stderr,
   invisible in the GUI · Reverse: restore `Void` returns and drop `lastError`.
+<<<<<<< New base: fix(gui): surface disk-I/O failures instead of swallowing them
 - 2026-07-18 · `emitDriftEvent` no longer prints to stdout · new
   `CircuitDriftEvent` Sendable type + `SynapticCircuit.init(driftSink:)`
   injection point; default `stderrDriftSink` keeps the signal but off the
@@ -95,3 +96,14 @@
   banner in `ContentView` · disk-I/O errors previously only reached stderr,
   invisible in the GUI · Reverse: restore `Void` returns and drop `lastError`.
 >>>>>>> Current commit: fix(gui): surface disk-I/O failures instead of swallowing them
+||||||| Common ancestor
+=======
+- 2026-07-18 · `emitDriftEvent` no longer prints to stdout · new
+  `CircuitDriftEvent` Sendable type + `SynapticCircuit.init(driftSink:)`
+  injection point; default `stderrDriftSink` keeps the signal but off the
+  machine-readable stdout channel (Coding Conventions) · touchstone perimeter:
+  the `drift > 0.1` branch is unreachable via public backwardPass under shipped
+  `etaBase = 0.1` (max single-pass mean movement ≈ 0.024), so end-to-end firing
+  is untested — pre-existing property, not introduced here · Reverse: restore
+  the `print(...)` in emitDriftEvent and drop the sink parameter.
+>>>>>>> Current commit: refactor(circuit): inject drift sink, default to stderr not stdout
