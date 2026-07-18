@@ -432,6 +432,12 @@ public class SynapseCore {
     /// Persist weights atomically. Returns `false` on failure (already logged
     /// to stderr) so a GUI caller can surface disk-I/O errors instead of them
     /// vanishing silently. CLI callers may discard the result.
+    ///
+    /// - Important: **Single-writer contract.** Writes are atomic per call but
+    ///   there is no cross-process lock. Concurrent writers on the same `user`
+    ///   namespace race last-writer-wins and can lose an update. Callers must
+    ///   ensure only one process writes a given user at a time. See README.
+    ///   File locking is tracked for v1.0 (Known Issues).
     @discardableResult
     public func saveWeights(_ w: Weights) -> Bool {
 >>>>>>> Current commit: fix(gui): surface disk-I/O failures instead of swallowing them

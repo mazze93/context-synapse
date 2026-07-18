@@ -66,6 +66,7 @@
   `etaBase = 0.1` (max single-pass mean movement ≈ 0.024), so end-to-end firing
   is untested — pre-existing property, not introduced here · Reverse: restore
   the `print(...)` in emitDriftEvent and drop the sink parameter.
+<<<<<<< New base: refactor(circuit): inject drift sink, default to stderr not stdout
 - 2026-07-18 · Multi-process write collision resolved as DOCUMENTATION, not a
   lock · README gains a prominent single-writer note + the `saveWeights` doc
   comment states the contract; actual file-locking enforcement stays v1.0 · the
@@ -107,3 +108,12 @@
   is untested — pre-existing property, not introduced here · Reverse: restore
   the `print(...)` in emitDriftEvent and drop the sink parameter.
 >>>>>>> Current commit: refactor(circuit): inject drift sink, default to stderr not stdout
+||||||| Common ancestor
+=======
+- 2026-07-18 · Multi-process write collision resolved as DOCUMENTATION, not a
+  lock · README gains a prominent single-writer note + the `saveWeights` doc
+  comment states the contract; actual file-locking enforcement stays v1.0 · the
+  Known Issue text explicitly asked for the assumption to be "documented
+  prominently"; a lock is a larger, separate change · Reverse: delete the note
+  and doc comment.
+>>>>>>> Current commit: docs: document single-writer contract; mark cleared known issues

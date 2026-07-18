@@ -18,7 +18,9 @@ Read PLAN.md then DECISIONS.md, continue at first unchecked phase.
 - [x] **B. Unbounded prior growth** — renormalization cap + PriorGrowthTests (4 tests green)
 - [x] **C. Silent GUI write failures** — Bool-returning saves + AppViewModel error surface + ContentView banner (full suite 198 green, CLI smoke ok, touchstone HELD)
 - [x] **D. emitDriftEvent stdout** — injectable sink, stderr default (stdout confirmed clean; drift branch unreachable under shipped eta — noted in test perimeter)
-- [ ] **E. Multi-process write collision** — document + CLAUDE.md table + full build/test/smoke
+- [x] **E. Multi-process write collision** — documented (README single-writer note + saveWeights doc comment); CLAUDE.md + README Known Issues tables updated for B–E; release build clean, full suite green, CLI smoke ok
+
+## ALL PHASES COMPLETE — awaiting user decision on push/PR
 >>>>>>> Current commit: chore(journal): scaffold known-issues cleanup sweep
 
 <<<<<<< New base: chore: known-issues cleanup sweep (prior cap, GUI error surface, drift sink, sin

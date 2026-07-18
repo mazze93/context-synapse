@@ -290,9 +290,19 @@ a lighthouse is loaded.
 
 | Issue | Severity | Target | Notes |
 |-------|----------|--------|-------|
+<<<<<<< New base: refactor(circuit): inject drift sink, default to stderr not stdout
 | ~~Silent write failures in GUI~~ | Fixed | — | `saveWeights`/`saveRegions`/`logRun` return `Bool`; `AppViewModel.lastError` + `ContentView` banner surface disk-I/O failures. Real failure path pinned by `PersistenceFailureTests` via the `baseOverride` seam (ADR-005) |
 | ~~Unbounded prior growth~~ | Fixed | — | `Prior.renormalizeIfSaturated` caps `alpha+beta` at `Prior.maxEvidence` (200), mean-preserving; applied in `applyFeedbackUpdate` |
 | Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption now documented prominently (README + `saveWeights` doc comment). Enforcement (lock) still v1.0 |
+||||||| Common ancestor
+| Silent write failures in GUI | Medium | v1.0 | No error surface in AppViewModel for disk I/O failures |
+| Unbounded prior growth | Low | v1.0 | alpha/beta accumulate indefinitely; add EMA decay |
+| Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption must be documented prominently |
+=======
+| ~~Silent write failures in GUI~~ | Fixed | — | `saveWeights`/`saveRegions`/`logRun` return `Bool`; `AppViewModel.lastError` + `ContentView` banner surface disk-I/O failures |
+| ~~Unbounded prior growth~~ | Fixed | — | `Prior.renormalizeIfSaturated` caps `alpha+beta` at `Prior.maxEvidence` (200), mean-preserving; applied in `applyFeedbackUpdate` |
+| Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption now documented prominently (README + `saveWeights` doc comment). Enforcement (lock) still v1.0 |
+>>>>>>> Current commit: docs: document single-writer contract; mark cleared known issues
 | ~~`minutesInDrift` hardcoded to 15~~ | Fixed | — | Now computed from `LighthouseRecord.setAt` |
 | `RegionModel.swift` duplicates `canonicalVector` | Intentional | — | Extension separation design; creates drift risk — keep in sync manually |
 | `SynapseCore.swift` is a ~900-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
