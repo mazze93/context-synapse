@@ -70,3 +70,12 @@
   Known Issue text explicitly asked for the assumption to be "documented
   prominently"; a lock is a larger, separate change · Reverse: delete the note
   and doc comment.
+- 2026-07-18 · Close the GUI-write-failure test perimeter (Link 1 only) via a
+  `baseOverride: URL?` DI seam on `SynapseCore.init` + `PersistenceFailureTests`
+  (read-only temp dir → real EACCES → `save*` return false), guarded against
+  root · ADR-005 records the full strategy: Link 2 (ViewModel reflection)
+  deferred until `AppViewModel` moves to a library target, Link 3 (SwiftUI
+  banner render) accepted as inherent perimeter (needs XCUITest, near-zero
+  marginal value) · added to PR #22 since it closes that PR's own documented
+  perimeter · Reverse: drop `baseOverride` + delete the test; prod path
+  unchanged.

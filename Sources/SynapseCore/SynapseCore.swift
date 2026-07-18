@@ -310,21 +310,32 @@ public class SynapseCore {
         print("ContextSynapse Error: \(message)\(errorMsg)", to: &standardError)
     }
     
-    public init(folderName: String = "ContextSynapse", user: String = "default") {
+    /// - Parameters:
+    ///   - folderName: top-level app-support folder name.
+    ///   - user: per-user namespace (sanitized for path traversal).
+    ///   - baseOverride: dependency-injection seam for the storage root that
+    ///     normally resolves to `~/Library/Application Support`. Injecting a
+    ///     temp (or deliberately read-only) directory lets tests exercise real
+    ///     disk-I/O failure paths — e.g. verifying `saveWeights` returns
+    ///     `false` when the destination is unwritable (ADR-005). `nil` keeps
+    ///     the production location; no behaviour change for normal callers.
+    public init(folderName: String = "ContextSynapse", user: String = "default", baseOverride: URL? = nil) {
         // Validate and sanitize user input to prevent directory traversal
         // Remove path separators and dots to prevent traversal attacks
         let sanitizedUser = user
             .components(separatedBy: CharacterSet(charactersIn: "/\\:."))
             .joined()
-        
+
         // Ensure the sanitized user is not empty and is alphanumeric with limited special chars
         guard !sanitizedUser.isEmpty,
               sanitizedUser.rangeOfCharacter(from: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))) != nil else {
             fatalError("Invalid user identifier: must contain alphanumeric characters")
         }
-        
+
         let home = fm.homeDirectoryForCurrentUser
-        let baseDir = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
+        let storageRoot = baseOverride
+            ?? home.appendingPathComponent("Library").appendingPathComponent("Application Support")
+        let baseDir = storageRoot.appendingPathComponent(folderName)
         self.appSupport = baseDir
         self.usersDir = baseDir.appendingPathComponent("users")
         self.currentUser = sanitizedUser

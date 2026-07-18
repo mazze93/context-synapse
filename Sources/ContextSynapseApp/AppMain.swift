@@ -73,6 +73,8 @@ final class AppViewModel: ObservableObject {
         )
         if !core.logRun(run) {
             lastError = "Failed to write run log to disk (see stderr)."
+        } else {
+            lastError = nil
         }
     }
 

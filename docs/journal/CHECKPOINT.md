@@ -11,7 +11,12 @@ Read PLAN.md then DECISIONS.md, continue at first unchecked phase.
 - [x] **D. emitDriftEvent stdout** — injectable sink, stderr default (stdout confirmed clean; drift branch unreachable under shipped eta — noted in test perimeter)
 - [x] **E. Multi-process write collision** — documented (README single-writer note + saveWeights doc comment); CLAUDE.md + README Known Issues tables updated for B–E; release build clean, full suite green, CLI smoke ok
 
-## ALL PHASES COMPLETE — awaiting user decision on push/PR
+## ALL PHASES COMPLETE — PR #22 open against main
+
+- [x] **F. Follow-up (post-review)** — Link 1 GUI-failure verification:
+  `baseOverride` seam + `PersistenceFailureTests` + ADR-005 (Links 2-3 deferred/
+  perimeter). Added to PR #22.
+- Pushed `chore/known-issues-cleanup-v0.4`; PR #22 → main.
 
 ## To resume
 
