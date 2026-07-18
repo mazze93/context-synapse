@@ -403,12 +403,18 @@ public class SynapseCore {
         return defaults
     }
     
-    public func saveWeights(_ w: Weights) {
+    /// Persist weights atomically. Returns `false` on failure (already logged
+    /// to stderr) so a GUI caller can surface disk-I/O errors instead of them
+    /// vanishing silently. CLI callers may discard the result.
+    @discardableResult
+    public func saveWeights(_ w: Weights) -> Bool {
         do {
             let data = try JSONEncoder().encode(w)
             try data.write(to: configURL, options: .atomic)
+            return true
         } catch {
             logError("Failed to save weights", error: error)
+            return false
         }
     }
     
@@ -423,12 +429,16 @@ public class SynapseCore {
         return regions
     }
     
-    public func saveRegions(_ regions: [Region]) {
+    /// Persist regions atomically. Returns `false` on failure (already logged).
+    @discardableResult
+    public func saveRegions(_ regions: [Region]) -> Bool {
         do {
             let data = try JSONEncoder().encode(regions)
             try data.write(to: regionsURL, options: .atomic)
+            return true
         } catch {
             logError("Failed to save regions", error: error)
+            return false
         }
     }
 
@@ -628,14 +638,18 @@ public class SynapseCore {
         }
     }
     
-    public func logRun(_ run: RunLog) {
+    /// Write a run log atomically. Returns `false` on failure (already logged).
+    @discardableResult
+    public func logRun(_ run: RunLog) -> Bool {
         let iso = ISO8601DateFormatter().string(from: Date())
         let file = logDir.appendingPathComponent("run-\(iso).json")
         do {
             let data = try JSONEncoder().encode(run)
             try data.write(to: file, options: .atomic)
+            return true
         } catch {
             logError("Failed to write run log", error: error)
+            return false
         }
     }
     
