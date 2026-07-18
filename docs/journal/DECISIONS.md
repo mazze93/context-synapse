@@ -33,3 +33,14 @@
   inline in `main`'s `InteractionRecord.swift`, the same failure class as the
   `Prior`/`SynapticPrior` incident · Reverse: `git revert` commit `5120f97` on
   `chore/v0.3-cleanup-and-doc-sync` (not yet merged into `main`).
+
+---
+
+## Sprint — known-issues cleanup sweep (2026-07-18)
+
+- 2026-07-18 · Cap unbounded prior growth by **mean-preserving
+  renormalization** (scale alpha & beta down proportionally when their sum
+  exceeds a cap) rather than clamping alpha/beta independently · preserving the
+  ratio keeps `probability()` and the mapped weight stable while bounding
+  evidence weight — independent clamps would silently shift the mean · Reverse:
+  remove the cap check in `applyFeedbackUpdate`'s `bump`.
