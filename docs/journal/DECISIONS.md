@@ -22,3 +22,14 @@
   spec says "emit a re-sync line before the prompt"; RavenRenderer already uses
   stdout, so the machine-readable-stdout rule is already scoped to the prompt
   line itself · Reverse: route through stderr.
+- 2026-07-18 · Resolved PR #20 (`chore/v0.3-cleanup-and-doc-sync`) merge
+  conflicts entirely in favor of `main`, including removing 5 non-conflicting
+  files (`DecayConstants.swift`, `SynapseContent.swift`,
+  `SynapseWeightStateTests.swift`, `SynapseRefereeTests.swift`,
+  `SemanticDistanceTests.swift`) that git's auto-merge had silently added ·
+  Verified by content, not commit messages, that the branch diverged before
+  v0.3 bedrock/v0.4 landed and its unique changes were an abandoned file split
+  that never shipped — keeping it would duplicate types already defined
+  inline in `main`'s `InteractionRecord.swift`, the same failure class as the
+  `Prior`/`SynapticPrior` incident · Reverse: `git revert` commit `5120f97` on
+  `chore/v0.3-cleanup-and-doc-sync` (not yet merged into `main`).
