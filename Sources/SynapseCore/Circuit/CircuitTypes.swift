@@ -299,6 +299,29 @@ public struct BackwardPassResult: Sendable {
     public let passNumber: Int
 }
 
+/// A large single-pass prior movement. Emitted by the circuit as a signal
+/// (intentional fragility — large updates are information, not noise). The
+/// destination is injected at construction; see SynapticCircuit.driftSink.
+public struct CircuitDriftEvent: Sendable {
+    public let synapseID: String
+    public let drift: Double
+    public let newMean: Double
+    public let timestamp: Date
+
+    public init(synapseID: String, drift: Double, newMean: Double, timestamp: Date = Date()) {
+        self.synapseID = synapseID
+        self.drift = drift
+        self.newMean = newMean
+        self.timestamp = timestamp
+    }
+
+    /// Canonical one-line rendering used by the default (stderr) sink.
+    public var formattedLine: String {
+        let ts = ISO8601DateFormatter().string(from: timestamp)
+        return "[CIRCUIT-DRIFT] \(ts) synapse=\(synapseID) drift=\(String(format: "%.3f", drift)) newMean=\(String(format: "%.3f", newMean))"
+    }
+}
+
 /// Complete point-in-time snapshot of the circuit.
 /// Used for persistence, diffing, and FaultInjectionSuite.
 public struct CircuitSnapshot: Sendable, Codable {

@@ -194,6 +194,25 @@ public struct Prior: Codable, Equatable {
         let s = alpha + beta
         return s > 0 ? alpha / s : 0.5
     }
+
+    /// Upper bound on accumulated evidence (alpha + beta). Without a cap the
+    /// Beta parameters grow without bound across a long feedback history, which
+    /// (a) ossifies the prior so recent feedback barely moves it, and (b) lets
+    /// the serialized values drift ever larger on disk. See Known Issues.
+    public static let maxEvidence: Double = 200.0
+
+    /// Bound total evidence while preserving the mean. When alpha + beta
+    /// exceeds `maxEvidence`, scale both down by the same factor: the ratio
+    /// alpha/(alpha+beta) — and thus `probability()` and every mapped weight —
+    /// is unchanged, but the distribution stays responsive to new feedback.
+    /// This is a bounded exponential-forgetting behaviour, not a hard clamp.
+    public mutating func renormalizeIfSaturated(cap: Double = Prior.maxEvidence) {
+        let total = alpha + beta
+        guard total > cap, total > 0 else { return }
+        let scale = cap / total
+        alpha *= scale
+        beta *= scale
+    }
 }
 
 // MARK: - Priors collection
@@ -291,21 +310,32 @@ public class SynapseCore {
         print("ContextSynapse Error: \(message)\(errorMsg)", to: &standardError)
     }
     
-    public init(folderName: String = "ContextSynapse", user: String = "default") {
+    /// - Parameters:
+    ///   - folderName: top-level app-support folder name.
+    ///   - user: per-user namespace (sanitized for path traversal).
+    ///   - baseOverride: dependency-injection seam for the storage root that
+    ///     normally resolves to `~/Library/Application Support`. Injecting a
+    ///     temp (or deliberately read-only) directory lets tests exercise real
+    ///     disk-I/O failure paths — e.g. verifying `saveWeights` returns
+    ///     `false` when the destination is unwritable (ADR-005). `nil` keeps
+    ///     the production location; no behaviour change for normal callers.
+    public init(folderName: String = "ContextSynapse", user: String = "default", baseOverride: URL? = nil) {
         // Validate and sanitize user input to prevent directory traversal
         // Remove path separators and dots to prevent traversal attacks
         let sanitizedUser = user
             .components(separatedBy: CharacterSet(charactersIn: "/\\:."))
             .joined()
-        
+
         // Ensure the sanitized user is not empty and is alphanumeric with limited special chars
         guard !sanitizedUser.isEmpty,
               sanitizedUser.rangeOfCharacter(from: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))) != nil else {
             fatalError("Invalid user identifier: must contain alphanumeric characters")
         }
-        
+
         let home = fm.homeDirectoryForCurrentUser
-        let baseDir = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
+        let storageRoot = baseOverride
+            ?? home.appendingPathComponent("Library").appendingPathComponent("Application Support")
+        let baseDir = storageRoot.appendingPathComponent(folderName)
         self.appSupport = baseDir
         self.usersDir = baseDir.appendingPathComponent("users")
         self.currentUser = sanitizedUser
@@ -384,12 +414,24 @@ public class SynapseCore {
         return defaults
     }
     
-    public func saveWeights(_ w: Weights) {
+    /// Persist weights atomically. Returns `false` on failure (already logged
+    /// to stderr) so a GUI caller can surface disk-I/O errors instead of them
+    /// vanishing silently. CLI callers may discard the result.
+    ///
+    /// - Important: **Single-writer contract.** Writes are atomic per call but
+    ///   there is no cross-process lock. Concurrent writers on the same `user`
+    ///   namespace race last-writer-wins and can lose an update. Callers must
+    ///   ensure only one process writes a given user at a time. See README.
+    ///   File locking is tracked for v1.0 (Known Issues).
+    @discardableResult
+    public func saveWeights(_ w: Weights) -> Bool {
         do {
             let data = try JSONEncoder().encode(w)
             try data.write(to: configURL, options: .atomic)
+            return true
         } catch {
             logError("Failed to save weights", error: error)
+            return false
         }
     }
     
@@ -404,12 +446,16 @@ public class SynapseCore {
         return regions
     }
     
-    public func saveRegions(_ regions: [Region]) {
+    /// Persist regions atomically. Returns `false` on failure (already logged).
+    @discardableResult
+    public func saveRegions(_ regions: [Region]) -> Bool {
         do {
             let data = try JSONEncoder().encode(regions)
             try data.write(to: regionsURL, options: .atomic)
+            return true
         } catch {
             logError("Failed to save regions", error: error)
+            return false
         }
     }
 
@@ -485,6 +531,9 @@ public class SynapseCore {
             } else {
                 prior.beta += 1.0
             }
+            // Bound accumulated evidence (mean-preserving) so priors stay
+            // responsive and on-disk values don't grow without limit.
+            prior.renormalizeIfSaturated()
             map[dictKey] = prior
         }
         bump(dictKey: chosenIntent, in: &w.priors.intents)
@@ -606,14 +655,18 @@ public class SynapseCore {
         }
     }
     
-    public func logRun(_ run: RunLog) {
+    /// Write a run log atomically. Returns `false` on failure (already logged).
+    @discardableResult
+    public func logRun(_ run: RunLog) -> Bool {
         let iso = ISO8601DateFormatter().string(from: Date())
         let file = logDir.appendingPathComponent("run-\(iso).json")
         do {
             let data = try JSONEncoder().encode(run)
             try data.write(to: file, options: .atomic)
+            return true
         } catch {
             logError("Failed to write run log", error: error)
+            return false
         }
     }
     

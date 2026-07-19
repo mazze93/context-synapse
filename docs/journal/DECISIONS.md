@@ -33,3 +33,49 @@
   inline in `main`'s `InteractionRecord.swift`, the same failure class as the
   `Prior`/`SynapticPrior` incident · Reverse: `git revert` commit `5120f97` on
   `chore/v0.3-cleanup-and-doc-sync` (not yet merged into `main`).
+
+---
+
+## Sprint — known-issues cleanup sweep (2026-07-18)
+
+- 2026-07-18 · Cap unbounded prior growth by **mean-preserving
+  renormalization** (scale alpha & beta down proportionally when their sum
+  exceeds a cap) rather than clamping alpha/beta independently · preserving the
+  ratio keeps `probability()` and the mapped weight stable while bounding
+  evidence weight — independent clamps would silently shift the mean · Reverse:
+  remove the cap check in `applyFeedbackUpdate`'s `bump`.
+- 2026-07-18 · touchstone pass on the prior-growth cap: HELD · probed
+  composition (is `applyFeedbackUpdate` the only unbounded accumulator? — yes;
+  circuit `SynapticPrior` already self-caps via `isOssified`, import merge
+  averages) and spec (does `mapPriorToWeight` depend only on the ratio? — yes,
+  `probability()` only, so renorm leaves weights unchanged) · perimeter: GUI
+  error banner not driven against a real disk failure (no GUI test target);
+  cap=200 is policy not correctness.
+- 2026-07-18 · Silent GUI write failures: `saveWeights`/`saveRegions`/`logRun`
+  now `@discardableResult -> Bool` (CLI discards, unaffected); `AppViewModel`
+  gains `@Published lastError`, set on failure and shown as a dismissable
+  banner in `ContentView` · disk-I/O errors previously only reached stderr,
+  invisible in the GUI · Reverse: restore `Void` returns and drop `lastError`.
+- 2026-07-18 · `emitDriftEvent` no longer prints to stdout · new
+  `CircuitDriftEvent` Sendable type + `SynapticCircuit.init(driftSink:)`
+  injection point; default `stderrDriftSink` keeps the signal but off the
+  machine-readable stdout channel (Coding Conventions) · touchstone perimeter:
+  the `drift > 0.1` branch is unreachable via public backwardPass under shipped
+  `etaBase = 0.1` (max single-pass mean movement ≈ 0.024), so end-to-end firing
+  is untested — pre-existing property, not introduced here · Reverse: restore
+  the `print(...)` in emitDriftEvent and drop the sink parameter.
+- 2026-07-18 · Multi-process write collision resolved as DOCUMENTATION, not a
+  lock · README gains a prominent single-writer note + the `saveWeights` doc
+  comment states the contract; actual file-locking enforcement stays v1.0 · the
+  Known Issue text explicitly asked for the assumption to be "documented
+  prominently"; a lock is a larger, separate change · Reverse: delete the note
+  and doc comment.
+- 2026-07-18 · Close the GUI-write-failure test perimeter (Link 1 only) via a
+  `baseOverride: URL?` DI seam on `SynapseCore.init` + `PersistenceFailureTests`
+  (read-only temp dir → real EACCES → `save*` return false), guarded against
+  root · ADR-005 records the full strategy: Link 2 (ViewModel reflection)
+  deferred until `AppViewModel` moves to a library target, Link 3 (SwiftUI
+  banner render) accepted as inherent perimeter (needs XCUITest, near-zero
+  marginal value) · added to PR #22 since it closes that PR's own documented
+  perimeter · Reverse: drop `baseOverride` + delete the test; prod path
+  unchanged.

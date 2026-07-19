@@ -31,6 +31,10 @@ final class AppViewModel: ObservableObject {
     @Published var queryText: String = ""
     @Published var faultEnabled: Bool = false
     @Published var faultProbability: Double = 0.0
+    /// User-visible surface for disk-I/O failures. Nil when the last write
+    /// succeeded. Previously such failures only reached stderr, which a GUI
+    /// user never sees (Known Issue: silent write failures in GUI).
+    @Published var lastError: String? = nil
 
     init() {
         self.weights = core.loadOrCreateDefaultWeights()
@@ -67,12 +71,24 @@ final class AppViewModel: ObservableObject {
             assembledPrompt: prompt,
             context: ["ui": "macapp"]
         )
-        core.logRun(run)
+        if !core.logRun(run) {
+            lastError = "Failed to write run log to disk (see stderr)."
+        } else {
+            lastError = nil
+        }
     }
 
     func saveConfig() {
-        core.saveWeights(weights)
-        core.saveRegions(regions)
+        let okWeights = core.saveWeights(weights)
+        let okRegions = core.saveRegions(regions)
+        lastError = (okWeights && okRegions)
+            ? nil
+            : "Failed to save configuration to disk (see stderr)."
+    }
+
+    /// Dismiss the current error banner.
+    func clearError() {
+        lastError = nil
     }
 
     func resetDefaults() {

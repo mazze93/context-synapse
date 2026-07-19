@@ -1,40 +1,42 @@
-# Sprint plan — CI repair + lighthouse migration + P1 backlog
+# Sprint plan — Known-issues cleanup sweep
 
-Branch: `claude/v0.3-ci-repair-and-p1` · Started 2026-07-15
+Branch: `chore/known-issues-cleanup-v0.4` · Started 2026-07-18
 
-## Context
+> Supersedes the PR #20 merge task (done, merged as of `eab27fa`). Prior sprint
+> detail lives in git history — do not reopen.
 
-- `main` CI is red: guardrails step rejects tracked `.vscode/settings.json`
-  (fails in ~13s, before build).
-- That early exit masks a second breakage: `Tests/SynapticCircuitTests.swift`
-  (PR #13) references the pre-rename `Prior` circuit API — 95 compile errors.
-  PR #13 must have merged before/independently of the PR #12 rename.
-- A previous session left `Sources/SynapseCore/LighthouseStore.swift` untracked
-  (P3 migration + P1 BreadcrumbWriter); CLI rewiring finished this session.
+## Goal
 
-## Phases
+Targeted, scoped sweep of the Known Issues table in CLAUDE.md. Real fixes,
+budget-conscious. Explicitly OUT of scope this sweep: the ~900-line
+`SynapseCore.swift` monolith split (design debt, v1.0, risky) and the
+intentional `RegionModel` `canonicalVector` duplication (by design).
 
-- **A. Scaffold** — journal files, feature branch. Commit.
-- **B. CI repair** — untrack `.vscode/settings.json` (v2 retired VS Code);
-  fix `Prior` → `SynapticPrior` in SynapticCircuitTests.swift. Build+test green
-  locally. Commit.
-- **C. Lighthouse migration** — LighthouseStore.swift + CLI rewire +
-  BreadcrumbWriter + real `minutesInDrift` + LighthouseStoreTests. Commit.
-- **D. DecayWeightTests.swift** — P1 item 1: floor invariant, cauterization
-  threshold, decay monotonicity. Commit.
-- **E. RunLogDecay.swift** — P1: `DecaySnapshot` extension on RunLog; upgrade
-  main.swift context payload. Commit.
-- **F. RefereeConfigStorage.swift** — P1: persist `RefereeConfig` round-trip in
-  config.json; CLI reads mode from it. Commit.
-- **G. Strict concurrency** — P0 leftover: add StrictConcurrency to SynapseCore
-  target; keep only if build stays clean. Commit.
-- **H. Close out** — update CLAUDE.md backlog/known-issues, full build+test,
-  end-to-end CLI verify, push, PR to main.
+## Phases (each finish-and-commit)
+
+- **A. Scaffold** — journal + feature branch. Commit.
+- **B. Unbounded prior growth** (Known Issue, Low/v1.0) — mean-preserving
+  renormalization cap in `SynapseCore.applyFeedbackUpdate` bump so `alpha+beta`
+  can't accumulate without bound. New cap constant. Test in a new
+  `Tests/PriorGrowthTests.swift` (UUID-isolated). Commit.
+- **C. Silent GUI write failures** (Known Issue, Medium/v1.0) — make
+  `saveWeights` / `saveRegions` / `logRun` return `@discardableResult Bool`
+  (CLI callers unaffected — they discard). Surface a `@Published` error string
+  in `AppViewModel` so GUI disk-I/O failures are no longer invisible. Commit.
+- **D. `emitDriftEvent` stdout pollution** (Known Issue, tech debt/v0.4) —
+  make the drift sink injectable at `SynapticCircuit.init`; default routes to
+  **stderr** not stdout (stdout is machine-readable-only per conventions).
+  Wire `SynapseManager` to construct with the default. Commit.
+- **E. Multi-process write collision** (Known Issue, Low/v1.0) — document the
+  single-writer assumption prominently (README + doc comment at the persistence
+  boundary). Update CLAUDE.md Known Issues table for B–E. Full build + test +
+  CLI smoke. Commit. Push/PR left for user confirmation (not asked).
 
 ## Constraints
 
-- No modifications to serialized `Prior` (SynapseCore.swift:183).
-- New SynapseCore files auto-join the module (SPM rule) — no Package.swift edit
-  except Phase G.
-- Tests: separate files, UUID-isolated folders.
-- ADR-001/ADR-002 boundaries untouched.
+- `Prior` (SynapseCore.swift:184) is serialized — cap changes VALUES only, never
+  the `{alpha,beta}` schema. Safe.
+- New SynapseCore/Tests files auto-join their targets (SPM) — no Package.swift edit.
+- Tests: separate files, UUID-isolated folders, never share state.
+- ADR-001/ADR-002 boundaries untouched. No operational-context inference.
+- Do not touch serialized shapes, `assemblePrompt`, or the drift-clock anchor.

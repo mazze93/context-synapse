@@ -47,6 +47,13 @@ public actor SynapticCircuit {
     private var connectivityCache:      [UUID: Double] = [:]
     private var connectivityCacheDirty: Bool           = true
 
+    /// Destination for high-drift signals. Injected at construction so the
+    /// circuit does not hard-wire a side effect. Defaults to stderr — never
+    /// stdout, which is reserved for machine-readable output (Coding
+    /// Conventions). Inject a custom sink (RunLog writer, in-memory collector)
+    /// to route drift events elsewhere.
+    private let driftSink: @Sendable (CircuitDriftEvent) -> Void
+
     // ── Computed Properties ───────────────────────────────────────────────────
 
     /// Current learning rate. Decays with pass count.
@@ -55,7 +62,18 @@ public actor SynapticCircuit {
         CircuitConstants.etaBase / (1.0 + Double(passCount) * CircuitConstants.etaDecayFactor)
     }
 
-    public init() {}
+    /// - Parameter driftSink: where high-drift events go. Defaults to a stderr
+    ///   writer. Callers that want the signal captured (SynapseManager, tests)
+    ///   inject their own; the default keeps stdout clean without discarding
+    ///   the signal.
+    public init(driftSink: @escaping @Sendable (CircuitDriftEvent) -> Void = SynapticCircuit.stderrDriftSink) {
+        self.driftSink = driftSink
+    }
+
+    /// Default drift sink: one structured line per event to stderr.
+    public static let stderrDriftSink: @Sendable (CircuitDriftEvent) -> Void = { event in
+        FileHandle.standardError.write(Data((event.formattedLine + "\n").utf8))
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // MARK: - Node / Edge Registration
@@ -410,13 +428,12 @@ public actor SynapticCircuit {
 
     // ─────────────────────────────────────────────────────────────────────────
     // MARK: - Side Effect: Drift Event
-    // Explicit documentation: this emits a structured log line to stdout.
-    // In production, replace with RunLog writer injected at construction.
-    // Intentional fragility: large prior updates are signals, not noise.
+    // Routes a high-drift signal to the injected sink (default: stderr, never
+    // stdout — stdout is machine-readable output only). The signal is preserved,
+    // not suppressed: large prior updates are information, not noise.
     // ─────────────────────────────────────────────────────────────────────────
 
     private func emitDriftEvent(synapseID: String, drift: Double, newMean: Double) {
-        let ts = ISO8601DateFormatter().string(from: Date())
-        print("[CIRCUIT-DRIFT] \(ts) synapse=\(synapseID) drift=\(String(format: "%.3f", drift)) newMean=\(String(format: "%.3f", newMean))")
+        driftSink(CircuitDriftEvent(synapseID: synapseID, drift: drift, newMean: newMean))
     }
 }
