@@ -669,7 +669,30 @@ public class SynapseCore {
             return false
         }
     }
-    
+
+    /// Persist an AI provenance/benchmark record **on-device only**.
+    ///
+    /// The record carries a host fingerprint (chip, device model, memory, OS
+    /// build) and identity/provenance of the model that ran. It is written
+    /// atomically to the per-user logs directory under `~/Library/Application
+    /// Support`, which lives outside any git repo and is never synced to CI or a
+    /// remote. This is the single sanctioned sink: such records MUST NOT be
+    /// emitted to stdout (CI logs are a public leak channel) or committed.
+    /// Returns the on-device file URL, or `nil` on failure (already logged).
+    @discardableResult
+    public func recordAIBenchmark(_ report: AIBenchmarkReport) -> URL? {
+        let iso = ISO8601DateFormatter().string(from: Date())
+        let file = logDir.appendingPathComponent("ai-benchmark-\(iso).json")
+        do {
+            let data = try JSONEncoder().encode(report)
+            try data.write(to: file, options: .atomic)
+            return file
+        } catch {
+            logError("Failed to write AI benchmark record", error: error)
+            return nil
+        }
+    }
+
     // MARK: - Export/Import
     
     /// Export complete state (weights + regions + metadata) to a file

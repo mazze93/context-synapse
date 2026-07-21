@@ -54,6 +54,9 @@ Sources/
     SynapseWeightState.swift     # Per-synapse decay math, rot scoring, utility, lighthouse floor
     InteractionRecord.swift      # InteractionEventType, InteractionRecord, SynapseContent, DecayConstants
     SemanticDistanceStrategy.swift  # Protocol + StructuralHeuristicDistance (shipped), stubs for TFIDF/CoreML
+    FoundationModelsClient.swift # On-device AIClient (opt-in); #if canImport(FoundationModels) + @available(macOS 26)
+                                 #   provenance() + repeatable benchmark(); records persist on-device only
+    AIProvenance.swift           # AIProvenanceRecord / AIEnvironment / AIBenchmarkReport (identity+provenance+bench, JSON)
     SynapseReferee.swift         # FunctionalReferee, AbrasiveReferee, ContextIntervention, RefereeConfig
     RavenRenderer.swift          # Edgar: RavenState enum, RavenRenderer, EdgarIntervention, ANSI palette
     SynapseManager.swift         # v0.4 session coordinator (actor): persistent synapse map,
@@ -302,7 +305,8 @@ a lighthouse is loaded.
 
 ## Design Constraints (Non-Negotiable)
 
-- **Local-first**: no required network calls; AI clients (`OpenAIClient`, `AnthropicClient`) are opt-in library extensions only
+- **Local-first**: no required network calls; AI clients (`OpenAIClient`, `AnthropicClient`) are opt-in library extensions only. `FoundationModelsClient` is on-device (macOS 26+, `#if canImport(FoundationModels)` so CI/macos-15 still builds) — no network, no API key
+- **AI records stay on-device**: `AIProvenanceRecord`/`AIBenchmarkReport` capture identity, provenance, and benchmarks as plain JSON, but carry a host fingerprint — persist them only via `SynapseCore.recordAIBenchmark` (Application Support, outside the repo). Never print full records to stdout (CI logs leak); `AIProvenanceTests` enforces the containment invariant
 - **Interpretability**: all weights, priors, and similarity scores are plain JSON — nothing hidden
 - **Fragility is intentional**: fault injection is a first-class feature — do not "fix" stochastic degradation behavior
 - **No operational context layer**: the system does not model cognitive/affective collapse states. This is ADR-002. It is a permanent design boundary, not a roadmap gap.
