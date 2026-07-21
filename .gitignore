@@ -213,3 +213,9 @@ __marimo__/
 # Local macOS/editor artifacts
 .DS_Store
 .vscode/
+
+# On-device AI provenance/benchmark records — carry a host fingerprint and are
+# written under ~/Library/Application Support (outside this tree). This is
+# belt-and-suspenders: such records must never be committed or reach CI logs.
+ai-benchmark-*.json
+ai-records/
