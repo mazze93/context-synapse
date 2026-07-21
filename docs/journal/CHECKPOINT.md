@@ -11,23 +11,31 @@ Read PLAN.md then DECISIONS.md, continue at first unchecked phase.
 - [x] **D. emitDriftEvent stdout** — injectable sink, stderr default (stdout confirmed clean; drift branch unreachable under shipped eta — noted in test perimeter)
 - [x] **E. Multi-process write collision** — documented (README single-writer note + saveWeights doc comment); CLAUDE.md + README Known Issues tables updated for B–E; release build clean, full suite green, CLI smoke ok
 
-## ALL PHASES COMPLETE — PR #22 open against main
+## SHIPPED — 2026-07-19
 
 - [x] **F. Follow-up (post-review)** — Link 1 GUI-failure verification:
   `baseOverride` seam + `PersistenceFailureTests` + ADR-005 (Links 2-3 deferred/
-  perimeter). Added to PR #22.
-- Pushed `chore/known-issues-cleanup-v0.4`; PR #22 → main.
+  perimeter).
+- **PR #22 MERGED** into `main` — squash merge commit `d25ace4` (mergedAt
+  2026-07-19T03:07Z). All required checks green on the merge: Analyze (Swift),
+  Build/test/guardrails, CodeQL, Greptile.
+- Post-merge re-verification on `main` (2026-07-21): `swift build`,
+  `swift build -c release`, `swift test --parallel` (204 tests) all green; CLI
+  smoke ok; zero conflict markers on `origin/main` or on disk.
+- **Cleanup:** a stale duplicate PR #23 (same head branch, re-pushed by
+  GitButler with unresolved conflict markers — Greptile 1/5, non-compiling) was
+  closed as superseded; the `chore/known-issues-cleanup-v0.4` branch was deleted
+  local + remote. All four known issues are resolved on `main`.
 
-## To resume
+## Deferred limitations (documented, not gaps in shipped code)
 
-Continue at the first unchecked box. Each phase = one commit. `swift build`
-then `swift test --parallel` must be green before committing a code phase.
-
-## Deferred / needs-user
-
-- **Push + PR to `main`** — NOT asked for. User requested cleanup with
-  checkpoints (= local commits). Offer push/PR at the end; do not push
-  autonomously (repo is public/HIGH posture).
+- **GUI write-failure Links 2–3** (ADR-005): ViewModel→`lastError` reflection
+  test deferred until `AppViewModel` moves to a library target; SwiftUI banner
+  *render* is inherent perimeter (needs XCUITest). Link 1 (disk-I/O → `false`)
+  is verified.
+- **Circuit drift branch:** `drift > 0.1` is unreachable via the public API
+  under shipped `etaBase = 0.1`; drift-sink firing is untested end-to-end by
+  design (no production behavior changed to force it).
 
 ## Historical (done, merged)
 
