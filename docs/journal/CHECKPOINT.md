@@ -11,6 +11,18 @@ Read PLAN.md then DECISIONS.md, continue at first unchecked phase.
 - [x] **D. emitDriftEvent stdout** — injectable sink, stderr default (stdout confirmed clean; drift branch unreachable under shipped eta — noted in test perimeter)
 - [x] **E. Multi-process write collision** — documented (README single-writer note + saveWeights doc comment); CLAUDE.md + README Known Issues tables updated for B–E; release build clean, full suite green, CLI smoke ok
 
+## SHIPPED — 2026-07-21: on-device AI client + provenance (PR #24)
+
+`FoundationModelsClient` (on-device, opt-in, macOS 26+ via canImport/@available
+so macos-15 CI still builds) + generic `AIProvenanceRecord`/`AIBenchmarkReport`
+(identity, provenance, repeatable benchmark). Records persist **on-device only**
+(`SynapseCore.recordAIBenchmark` → Application Support); never stdout/CI/repo —
+enforced by a portable containment test + `.gitignore`. **PR #24 MERGED**
+(squash `4a1f65c`); all checks green (Analyze/Swift, Build+guardrails on
+macos-15, CodeQL, Greptile). Proven end-to-end locally on M5 Pro / macOS 27:
+real on-device round-trip + 3-iteration benchmark. See DECISIONS 2026-07-21.
+Deferred: Core ML `LocalEmbeddingDistance`; bootstrap script (separate repo).
+
 ## SHIPPED — 2026-07-19
 
 - [x] **F. Follow-up (post-review)** — Link 1 GUI-failure verification:

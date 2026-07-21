@@ -79,3 +79,26 @@
   marginal value) · added to PR #22 since it closes that PR's own documented
   perimeter · Reverse: drop `baseOverride` + delete the test; prod path
   unchanged.
+
+---
+
+## Sprint — on-device AI client + provenance (2026-07-21, PR #24, merged 4a1f65c)
+
+- 2026-07-21 · FoundationModels API surface confirmed by SDK type-check probes
+  (`SystemLanguageModel.default.availability`, `LanguageModelSession().respond`,
+  `supportedLanguages`) before writing any client code · getting symbol names
+  wrong = won't compile; the API is macOS 26+ and undocumented in our training ·
+  Reverse: n/a (evidence step).
+- 2026-07-21 · `FoundationModelsClient` double-guarded `#if
+  canImport(FoundationModels)` + `@available(macOS 26)` · framework ships only
+  in the macOS 26+ SDK, but CI runs macos-15 and the package deploys to macOS
+  13 — canImport compiles the file out on CI (still builds), @available gates
+  runtime use · **consequence: CI never compiles this code; only local macOS
+  26+ does** — verified end-to-end locally instead · Reverse: delete the file.
+- 2026-07-21 · AI provenance/benchmark records persist **on-device only**
+  (`SynapseCore.recordAIBenchmark` → Application Support), never stdout · records
+  carry a host fingerprint (chip/model/memory/OS); stdout is a CI-log leak
+  channel and CI logs are public · enforced by
+  `AIProvenanceTests.testBenchmarkRecordsStayOnDeviceNotInRepo` (portable) +
+  `.gitignore` defense-in-depth; full benchmark JSON deliberately kept out of
+  the PR body too · Reverse: remove `recordAIBenchmark` + the containment test.
