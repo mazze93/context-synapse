@@ -1,5 +1,35 @@
 # Decisions — append-only
 
+- 2026-07-22 · Discarded the local GitButler branch state; `main` reset to
+  `origin/main` (`2b70c48`) · **Salvage audit first — nothing was thrown away
+  unexamined.** GitButler had left this repo on `gitbutler/workspace`, 13
+  commits ahead of `origin/main` and 3 behind, with unresolved conflict markers
+  **committed into history** across 5 files (its `<<<<<<< New base:` /
+  `Common ancestor` / `Current commit:` rebase format) and commit messages with
+  words run together and dropped (e.g. `fix(docs): …docsRemove leftover markers
+  CLAUDE and docs/j/CHECKPOINT.md,`).
+  Audit method and result: the merge base was `d25ace4` — the **squash-merge of
+  PR #22 itself** — meaning the 7 "clean-looking" commits were the sweep's work
+  *re-applied on top of its own squashed merge*, which is what generated the
+  conflicts. `git diff origin/main HEAD` showed **141 insertions / 631
+  deletions**; filtering conflict markers and blank lines out of the additions
+  left only (a) stale journal prose describing PR #22 as still open, and (b) one
+  `CLAUDE.md` "Local-first" bullet that `origin/main` already carries in a
+  strictly longer form (main's adds the `FoundationModelsClient` on-device
+  clause). **Zero unique source or test code.** `ml-branch-2` was audited
+  separately (its head `e41e70e` was not among the 13) and contained the same
+  stale prose and nothing else.
+  Meanwhile local was *missing* four files that exist on main —
+  `Sources/SynapseCore/{AIProvenance,FoundationModelsClient}.swift` and their
+  tests — from merged PR #24. The local branch was strictly worse than main.
+  Verified after reset: no conflict markers in HEAD, all four files restored,
+  `swift build` clean, `swift test --parallel` exit 0 with 216 tests and zero
+  errors.
+  **Untouched by this:** `chore/v0.3-cleanup-and-doc-sync` (PR #20, still open,
+  22 commits) and `claude/v0.3-ci-repair-and-p1` both survive intact.
+  Reverse: `git reset --hard backup/gitbutler-workspace-2026-07-22` (and
+  `backup/ml-branch-2-2026-07-22` for the other head) — both annotated tags
+  preserve the exact pre-reset commits.
 - 2026-07-15 · Fix SynapticCircuitTests by renaming `Prior` → `SynapticPrior`
   in the test file (not a typealias shadow) · CLAUDE.md declares the two types
   intentionally separate; a typealias would re-blur exactly the ambiguity the

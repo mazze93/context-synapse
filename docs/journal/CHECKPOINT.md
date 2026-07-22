@@ -1,5 +1,21 @@
 # Checkpoint — resume here if the session drops
 
+## 2026-07-22 — GitButler state discarded, repo realigned to origin/main
+
+This repo is now on plain `main` @ `2b70c48`, clean, building, 216 tests green.
+GitButler is fully removed here: no `gitbutler/*` refs, no `ml-branch-*`, no
+`.git/gitbutler/`, no managed hooks. See DECISIONS.md 2026-07-22 for the
+salvage audit that justified discarding the local branch (short version: it
+contained zero unique code and was missing four files from merged PR #24).
+
+**The section below is stale** — it describes the PR #22 sweep as in-progress.
+PR #22 merged as `d25ace4` on 2026-07-18. Kept for history, not for resuming.
+
+### Still open in this repo (not addressed 2026-07-22)
+- **PR #20** (`chore/v0.3-cleanup-and-doc-sync`) is still open, with 22 commits
+  unpushed on the local branch. Untouched by the realignment.
+- `claude/v0.3-ci-repair-and-p1` is ahead 1 / behind 1 of its remote.
+
 ## Active — 2026-07-18: known-issues cleanup sweep
 
 **Branch:** `chore/known-issues-cleanup-v0.4` (off `main` @ `eab27fa`).
