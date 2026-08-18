@@ -7,18 +7,17 @@ blocked; a stacked rebase wrote conflict markers that broke the build — see th
 2026-07-22 salvage audit below). jj's first-class conflicts + `jj undo` + stable
 change IDs + terminal-native model fit better. See DECISIONS 2026-08-18.
 
-Prereqs already satisfied between sessions:
-- [x] GitButler fully removed (no managed hook, no `.git/gitbutler/`)
-- [x] jj installed — 0.44.0 via brew
-- [x] Global jj identity set — `~/.config/jj/config.toml` (Mazze LeCzzare)
+Done this session:
+- [x] GitButler fully removed; jj 0.44.0 installed; global identity set
+- [x] **Colocated** — `jj git init --colocate` ran; `.jj` + `.git` coexist, `trunk()` = main@origin
+- [x] **Reclaim audit** — Fable lighthouse scene unrecoverable; all 4 branches carry 0 unique files vs main (proof in DECISIONS 2026-08-18)
+- [x] **Journal made enforceable** — `scripts/ops/check_journal_append.sh` (guard, 4-case tested) + `docs/journal/archive/` + `LESSONS.md` + CI step + CLAUDE.md contract
 
-Remaining (staged, not yet run — awaiting go-ahead):
-- [ ] **Colocate:** `jj git init --colocate` (imports git HEAD; `.git` untouched)
-- [ ] **Verify:** `jj status` / `jj log`; confirm origin push via a bookmark
-- [ ] **Orientation:** first-week jj loop (`new` / `describe` / `bookmark` / `git push`)
+Remaining / deferred:
+- [ ] **Push + PR** the journal-enforceability work (branch `feat/journal-append-guard`) — awaiting your ok / review
+- [ ] **Branch cleanup** — you didn't pick a scope; all 4 non-main branches verified content-free, deletion still your call (irreversible)
+- [ ] **Edgar storm-flight rebuild** — brief captured in `docs/design/edgar-lighthouse-scene-brief.md`; build queued as focused next task
 
-**To resume:** run the colocate one-liner in DECISIONS 2026-08-18. Fully
-reversible: `rm -rf .jj` returns to plain git (`.git` is authoritative).
 **Deferred/needs-user:** whether to colocate the rest of `~/Projects` (per-repo,
 deliberate — not this session); keep `secure-pride/*` out of any experiment.
 

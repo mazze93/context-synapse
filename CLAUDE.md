@@ -384,6 +384,33 @@ swift run contextsynapse <command>          # invoke without install
 swift build -c release && .build/release/contextsynapse
 ```
 
+## Journal Discipline (append-only + bounded + distilled)
+
+The `docs/journal/` layer is how this project learns from its mistakes. Three
+files, three contracts — do not conflate them:
+
+- **`DECISIONS.md`** — the append-only log. Dated `- YYYY-MM-DD · decision · why
+  · reverse` entries. **Never delete or edit an entry in place.** To correct a
+  past call, append a new dated reversal. To keep the active file cheap to load,
+  **rotate** whole older sprint sections *verbatim* into `docs/journal/archive/`
+  (a move, never a deletion). Enforced by `scripts/ops/check_journal_append.sh`
+  (pre-commit + CI): it fails if any dated entry present at the baseline is
+  missing from the union of active + archive. Rotation passes; deletion/edit
+  fails. This is what makes append-only *and* resource-bounded coexist.
+- **`CHECKPOINT.md`** — the disposable "resume here / current state" pointer.
+  This one *is* meant to be rewritten each session; its shrinking is not a
+  violation. It is not the log.
+- **`LESSONS.md`** — the distilled, portable carry-forward layer. Small, curated,
+  generalized takeaways that should survive the end of this project and seed the
+  next. When a lesson stops being project-specific, graduate it to the workspace
+  layer (`~/Projects` templates / global CLAUDE.md).
+
+**Branch/PR closes must carry proof, not assertion.** Before deleting a branch or
+closing a PR as "superseded," run `git diff --diff-filter=A --name-only main
+<branch>` and put the result (files genuinely unique to the branch, 0 = safe) in
+the close note and a dated `DECISIONS.md` entry. An unproven close forces the
+next person to re-derive trust from scratch.
+
 ## Repo
 
 - GitHub: `mazze93/context-synapse`
