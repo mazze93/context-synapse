@@ -1,5 +1,27 @@
 # Checkpoint — resume here if the session drops
 
+## Active — 2026-08-18: pivot from GitButler to jujutsu (jj)
+
+Adopting jj for this repo after GitButler friction (raw commits were hook-
+blocked; a stacked rebase wrote conflict markers that broke the build — see the
+2026-07-22 salvage audit below). jj's first-class conflicts + `jj undo` + stable
+change IDs + terminal-native model fit better. See DECISIONS 2026-08-18.
+
+Prereqs already satisfied between sessions:
+- [x] GitButler fully removed (no managed hook, no `.git/gitbutler/`)
+- [x] jj installed — 0.44.0 via brew
+- [x] Global jj identity set — `~/.config/jj/config.toml` (Mazze LeCzzare)
+
+Remaining (staged, not yet run — awaiting go-ahead):
+- [ ] **Colocate:** `jj git init --colocate` (imports git HEAD; `.git` untouched)
+- [ ] **Verify:** `jj status` / `jj log`; confirm origin push via a bookmark
+- [ ] **Orientation:** first-week jj loop (`new` / `describe` / `bookmark` / `git push`)
+
+**To resume:** run the colocate one-liner in DECISIONS 2026-08-18. Fully
+reversible: `rm -rf .jj` returns to plain git (`.git` is authoritative).
+**Deferred/needs-user:** whether to colocate the rest of `~/Projects` (per-repo,
+deliberate — not this session); keep `secure-pride/*` out of any experiment.
+
 ## 2026-07-22 — GitButler state discarded, repo realigned to origin/main
 
 This repo is now on plain `main` @ `2b70c48`, clean, building, 216 tests green.

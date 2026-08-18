@@ -132,3 +132,24 @@
   `AIProvenanceTests.testBenchmarkRecordsStayOnDeviceNotInRepo` (portable) +
   `.gitignore` defense-in-depth; full benchmark JSON deliberately kept out of
   the PR body too · Reverse: remove `recordAIBenchmark` + the containment test.
+
+---
+
+## Pivot — GitButler → jujutsu (2026-08-18)
+
+- 2026-08-18 · Adopt jujutsu (jj) as the VCS porcelain for context-synapse,
+  colocated over the existing git repo · GitButler blocked raw commits (managed
+  pre-commit hook) and a stacked rebase wrote conflict markers into tracked
+  files that broke the build (see 2026-07-22 salvage audit); jj makes conflicts
+  first-class / non-blocking, gives `jj undo` + stable change IDs, and is
+  terminal-native (fits Zed + shell). Global `~/.config/jj/config.toml` already
+  supplies the fleet-wide "just works" layer GitButler lacked · Reverse:
+  `rm -rf .jj` — colocated, so `.git` is untouched; instantly back to plain git.
+- 2026-08-18 · Colocate (`jj git init --colocate`) rather than a jj-native
+  clone · keeps `.git` authoritative so `github-mcp-gateway`, GitHub Actions,
+  and `gh` keep working unchanged; every jj command syncs the git view ·
+  Reverse: same as above.
+- 2026-08-18 · Scope the pivot to this one repo, not all of `~/Projects` · jj is
+  per-repo and pre-1.0 (churn — e.g. branches→bookmarks rename); A/B on the
+  active repo where the conflict pain actually occurred, leave siblings on plain
+  git, decide later · Reverse: n/a (non-adoption is the default elsewhere).
