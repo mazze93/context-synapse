@@ -122,7 +122,7 @@
   .term-body { padding: 1.4rem 1.6rem; overflow-x: auto; }
   .term-body pre { font-family: var(--mono); font-size: .88rem; line-height: 1.5; white-space: pre; }
 
-  #edgar-demo { text-align: center; padding: 2rem 1rem; overflow-x: auto; }
+  #edgar-demo { text-align: center; padding: 2rem 1rem; overflow-x: auto; transition: background .1s ease-out; }
   #edgar-scene {
     white-space: pre; display: inline-block; text-align: left;
     font-size: clamp(.55rem, 1.6vw, .85rem); line-height: 1.3;
@@ -132,7 +132,7 @@
   .sc-l { color: var(--amber); }
   .sc-b { color: var(--amber); text-shadow: 0 0 16px rgba(240,180,69,.6); }
   .sc-w { color: #4a6f8f; }
-  .sc-r { color: var(--ink-faint); }
+  .sc-r { color: #5b6b83; }
   .sc-z { color: #ffffff; text-shadow: 0 0 14px rgba(255,255,255,.6); }
   #edgar-status { margin-top: 1.2rem; font-size: .9rem; transition: color .6s; }
   #edgar-note { margin-top: .6rem; color: var(--ink-dim); font-size: .78rem; min-height: 1.2em; }
@@ -375,6 +375,7 @@ W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotSc
   const scene  = document.getElementById("edgar-scene");
   const status = document.getElementById("edgar-status");
   const note   = document.getElementById("edgar-note");
+  const demo   = document.getElementById("edgar-demo");
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
   const W = 52, H = 10;               // sky grid; lighthouse appended at right
@@ -403,6 +404,7 @@ W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotSc
   let rot = 0, tick = 0;
   let phase = "rotting";              // rotting → flight → flash → rotting
   let flightT = 0;                    // 0..1 progress of the flight
+  let strike = 0;                     // lightning after-flash, decays each tick
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function put(g, c, row, col, str, cls) {
@@ -417,35 +419,59 @@ W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotSc
     const g = Array.from({ length: H }, () => Array(W + LH[0].length).fill(" "));
     const c = Array.from({ length: H }, () => Array(W + LH[0].length).fill(""));
 
-    // rain — density follows rot
+    // storm intensity — brews slowly, then erupts; pinned to full fury while
+    // Edgar is aloft, so he flies THROUGH the storm, not after it.
+    const storm = phase === "flight" ? 1 : Math.max(0, (rot - 0.3) / 0.7) ** 1.8;
+    const wind  = Math.round(storm * 2);           // rain slants harder as it rages
+
+    // rain — density and slant follow the storm
     for (let r = 0; r < H - 2; r++)
       for (let x = 0; x < W - 2; x++)
-        if (Math.random() < rot * 0.06) { g[r][x] = Math.random() < .5 ? "'" : "."; c[r][x] = "r"; }
+        if (Math.random() < storm * 0.11) {
+          const gl = storm > 0.6 ? (Math.random() < .5 ? "╱" : "/") : (Math.random() < .5 ? "'" : ".");
+          put(g, c, r, x + wind, gl, "r");
+        }
 
-    // lightning — only deep in the storm
-    if (rot > 0.7 && Math.random() < 0.18) {
-      const bx = 8 + Math.floor(Math.random() * (W - 20));
-      put(g, c, 0, bx, "╲", "z"); put(g, c, 1, bx, "╱", "z"); put(g, c, 2, bx - 1, "╲", "z");
+    // lightning — forks out of the deep storm, more often mid-flight; leaves a
+    // scene-wide after-flash (see `strike`).
+    if (storm > 0.55 && Math.random() < (phase === "flight" ? 0.32 : 0.18)) {
+      const bx = 8 + Math.floor(Math.random() * (W - 22));
+      let x = bx;
+      for (let r = 0; r < 5; r++) {                 // jagged fork down the sky
+        put(g, c, r, x, r % 2 ? "╲" : "╱", "z");
+        x += r % 2 ? -1 : 1;
+      }
+      strike = 1;                                    // trigger the after-flash
     }
 
     // the lighthouse
     LH.forEach((row, r) => put(g, c, r, W, row, "l"));
     put(g, c, 0, W + 3, "◆", "b");
 
-    // the beam: idle pulse, or full sweep during the flash
+    // edgar's position while aloft — also anchors the guiding beam below
+    let ex = 0, ey = 0;
+    if (phase === "flight") {
+      ex = Math.floor(EDGAR_COL + 6 + (W - 10 - EDGAR_COL) * flightT);
+      ey = Math.max(0, Math.round(EDGAR_ROW - Math.sin(flightT * Math.PI) * 3));
+    }
+
+    // the beam — a steady-interval pulse from the lamp; a guiding line that
+    // reaches out to Edgar mid-flight (constant, unbroken by the storm); and a
+    // full sweep on the resync flash.
     if (phase === "flash") {
       put(g, c, 0, 2, "═".repeat(W + 1), "b");
       put(g, c, 1, Math.floor(W * .3), "░".repeat(Math.floor(W * .7)), "b");
+    } else if (phase === "flight") {
+      const reach = W + 3 - ex;                       // lamp → edgar
+      put(g, c, ey, ex, (tick % 4 < 2 ? "─" : "·").repeat(Math.max(0, reach)), "b");
     } else {
       const pulse = [3, 6, 9, 6][tick % 4];
       put(g, c, 0, W + 3 - pulse, "─".repeat(pulse - 1), "b");
     }
 
-    // edgar: perched, or in flight toward the lamp
+    // edgar: perched, or flying fearless through the storm toward the lamp
     if (phase === "flight") {
-      const x = Math.floor(EDGAR_COL + 6 + (W - 10 - EDGAR_COL) * flightT);
-      const y = Math.max(0, Math.round(EDGAR_ROW - Math.sin(flightT * Math.PI) * 3));
-      put(g, c, y, x, tick % 2 ? "»◉«" : "›◉‹", "e");
+      put(g, c, ey, ex, tick % 2 ? "»◉«" : "‹◉›", "e");   // wingbeats
     } else if (phase !== "flash") {
       EDGAR.forEach((row, r) => put(g, c, EDGAR_ROW + r, EDGAR_COL, row, "e"));
     }
@@ -479,12 +505,14 @@ W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotSc
     const filled = Math.round(rot * 20);
     status.innerHTML = `⚓ ship the v0.3 bedrock release&nbsp;&nbsp;rot <span class="rotbar">[${"█".repeat(filled)}${"░".repeat(20 - filled)}]</span> ${Math.round(rot * 100)}%&nbsp;&nbsp;${st.name}`;
     status.style.color = css(st.color);
-    note.textContent = phase === "flight" ? "rot ≥ 0.82 — edgar flies for the lighthouse." : st.note;
+    note.textContent = phase === "flight" ? "the storm erupts — edgar flies fearless for the beam." : st.note;
+    demo.style.background = strike > 0.01 ? `rgba(210,224,255,${(strike * 0.10).toFixed(3)})` : "";
   }
 
   if (reduced) { rot = 0.42; render(); return; }
   setInterval(() => {
     tick++;
+    strike = Math.max(0, strike - 0.34);   // lightning after-flash fades
     if (phase === "rotting") {
       rot = Math.min(1, rot + 0.012);
       if (rot >= 0.95) { phase = "flight"; flightT = 0; }
