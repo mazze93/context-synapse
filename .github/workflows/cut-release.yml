@@ -21,7 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out main
-        uses: actions/checkout@v7
+        # Pinned to a full commit SHA: this job holds `contents: write` and the
+        # checkout credential is what pushes the tag, so the action's code must
+        # not move without a change to this repo. Dependabot (github-actions
+        # ecosystem) bumps the pin and the trailing version comment together.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0

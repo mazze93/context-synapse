@@ -36,7 +36,11 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        # Pinned to a full commit SHA: the Cloudflare credentials above are
+        # job-level env, so every step in this job — this one included — runs
+        # with them in scope. Dependabot (github-actions ecosystem) bumps the
+        # pin and the trailing version comment together.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Resolve latest release tag
         id: rel
@@ -76,8 +80,13 @@ jobs:
 
       - name: Deploy to Cloudflare
         id: cf
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        uses: cloudflare/wrangler-action@v3
+        # Both secrets are required to deploy — gate on both so a half-configured
+        # repo takes the green skip path below rather than failing inside wrangler.
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        # Pinned to a full commit SHA — this step receives the Cloudflare API
+        # token and account id, so the code behind the tag must not move
+        # without a change to this repo.
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -85,6 +94,8 @@ jobs:
           command: deploy
 
       - name: Note when secrets are missing
-        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
+        # Exact complement of the deploy gate above: either secret missing lands
+        # here, so precisely one of the two steps runs on every job.
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}
         run: |
-          echo "::notice::CLOUDFLARE_API_TOKEN not set — skipped deploy. Add CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID repo secrets to activate."
+          echo "::notice::Cloudflare credentials incomplete — skipped deploy. Both CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repo secrets must be set to activate."
