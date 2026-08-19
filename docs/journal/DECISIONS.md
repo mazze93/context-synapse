@@ -153,3 +153,53 @@
   per-repo and pre-1.0 (churn — e.g. branches→bookmarks rename); A/B on the
   active repo where the conflict pain actually occurred, leave siblings on plain
   git, decide later · Reverse: n/a (non-adoption is the default elsewhere).
+
+## Reclaim audit — Fable landing page + branch cleanup (2026-08-18)
+
+- 2026-08-18 · The "Edgar flying toward the lighthouse" landing-page scene is
+  UNRECOVERABLE from git · exhaustive search — main, all branches, backup tags
+  (no `site/` at all), git stash (empty), on-disk untracked (none), and all 89
+  GitButler oplog unreachable commits — every `site/public/index.html` that ever
+  existed is byte-identical blob `77cf458` (23KB, keyframes blink/caret/drift
+  only, static raven + static lighthouse glow). The animated flight scene was
+  never committed (matches the global CLAUDE.md "lighthouse scene was lost"
+  note) · Reverse: n/a (nothing to reverse; rebuild fresh is the only path).
+- 2026-08-18 · No branch carries unique content worth reclaiming; main already
+  has everything · proven via jj: `repo-docs-value-trust-dLqaj` and
+  `feature/v0.3-circuit-wiring` have 0 commits vs trunk(); `chore/v0.3-cleanup-
+  and-doc-sync` adds only the deliberately-abandoned DecayConstants/SynapseContent
+  split (0 source added to main); PR #27 `claude/v0.3-ci-repair-and-p1`'s landing
+  page is identical to main and its `fix(review)` 5c8e369 cherry-picks EMPTY onto
+  main (`jj duplicate` → empty ⇒ content already on main; confirmed at
+  LighthouseStore.swift:80) · Reverse: branches/tags not yet deleted — retire
+  decision deferred to user (irreversible remote-branch deletion + open-PR close).
+
+## Sprint — journal made enforceable, bounded, distilled (2026-08-18)
+
+- 2026-08-18 · Reconcile append-only with resource cost via ROTATE + DISTILL,
+  not truncation · unbounded growth of a per-session-loaded log is itself a cost
+  ("a tumor on resource-constrained ops"); but deleting entries loses the
+  lessons. Resolution: `DECISIONS.md` stays append-only; older sprints MOVE
+  verbatim to `docs/journal/archive/`; generalized takeaways distill into
+  `LESSONS.md` (portable, survives project end) · Reverse: delete LESSONS.md +
+  archive/, flatten back to one growing file.
+- 2026-08-18 · Enforce append-only with `scripts/ops/check_journal_append.sh`
+  (pre-commit + CI, mirrors the rot_check.sh pattern) · discipline alone already
+  failed silently once (salvage audit discarded branches asserting "stale
+  prose"); the guard fails if any dated entry at the baseline is absent from the
+  active+archive union, so rotation passes and deletion/edit fails · guard bug
+  found + fixed during build: entries must terminate on blank lines and any
+  `#`-header (not just `## ` / next bullet), else concatenated files bleed prose
+  into an entry — verified with a 4-case matrix (clean/delete/rotate/edit) ·
+  Reverse: drop the CI step + script.
+- 2026-08-18 · Distinguish CHECKPOINT.md (disposable state pointer, rewritten by
+  design) from DECISIONS.md (append-only log) explicitly in CLAUDE.md · the two
+  were conflated, making the log look "swept" when audit proved it never lost an
+  entry (0 unique-off-main entries across 15 blobs incl. all 89 oplog snapshots)
+  · Reverse: remove the Journal Discipline section.
+- 2026-08-18 · Edgar storm-flight landing scene is a fresh REBUILD, spec captured
+  in `docs/design/edgar-lighthouse-scene-brief.md` · the original is
+  unrecoverable (exhaustive search); the brief maps each beat to a real system
+  mechanic (rot gauge → storm, drift → lightning, lighthouse floor → constant
+  beam) so the hero animation is the product thesis, not decoration · Reverse:
+  delete the brief; leave the static scene.

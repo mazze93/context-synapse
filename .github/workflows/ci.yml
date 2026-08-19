@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Show toolchain versions
         shell: bash
@@ -53,6 +55,23 @@ jobs:
             [[ -z "${path}" ]] && continue
             test -e "${path}" || { echo "Missing required path: ${path}" >&2; exit 1; }
           done <<< "${REQUIRED_REPO_FILES}"
+
+      - name: Verify journal append-only invariant
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT}" == "pull_request" ]]; then
+            base="origin/${BASE_REF}"
+          else
+            base="${BEFORE_SHA:-}"
+            [[ "${base}" =~ ^0*$ ]] && base="HEAD^"   # branch-creation / empty
+          fi
+          git rev-parse -q --verify "${base}" >/dev/null 2>&1 || base="HEAD^"
+          scripts/ops/check_journal_append.sh "${base}"
 
       - name: Verify tracked generated and editor artifacts
         shell: bash
