@@ -471,7 +471,9 @@ W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotSc
       put(g, c, 0, 2, "═".repeat(W + 1), "b");
       put(g, c, 1, Math.floor(W * .3), "░".repeat(Math.floor(W * .7)), "b");
     } else if (phase === "flight") {
-      const reach = W + 3 - ex;                       // lamp → edgar
+      const reach = W + 1 - ex;                        // edgar → up to col W; the
+      // lighthouse art's leftmost glyph is at col W+2, so stop short of it — the
+      // beam must never overwrite the lighthouse itself.
       put(g, c, ey, ex, (tick % 4 < 2 ? "─" : "·").repeat(Math.max(0, reach)), "b");
     } else {
       const pulse = [3, 6, 9, 6][tick % 4];
