@@ -59,6 +59,14 @@
   nav .links { margin-left: auto; display: flex; gap: 1.25rem; font-size: .85rem; }
   nav .links a { color: var(--ink-dim); }
   nav .links a:hover { color: var(--cyan); text-decoration: none; }
+  .release-badge {
+    color: var(--amber);
+    border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--border));
+    background: color-mix(in srgb, var(--amber) 8%, transparent);
+    border-radius: 999px; padding: .05rem .55rem; font-size: .72rem; letter-spacing: .02em;
+  }
+  nav .links a.release-badge:hover { color: var(--amber); border-color: var(--amber); text-decoration: none; }
+  .release-badge[hidden] { display: none; }
 
   /* ── hero ─────────────────────────────────────────── */
   header { padding: 5rem 0 4rem; text-align: center; position: relative; overflow: hidden; }
@@ -200,6 +208,7 @@
       <a href="#design">design</a>
       <a href="#install">install</a>
       <a href="https://github.com/mazze93/context-synapse">github</a>
+      <a href="https://github.com/mazze93/context-synapse/releases" id="release-badge" class="release-badge" hidden>__RELEASE_TAG__</a>
     </div>
   </div>
 </nav>
@@ -525,6 +534,29 @@ W_final(s,t) = max(<span class="hl">floor(s)</span>, W_decay · (1 − α·RotSc
     }
     render();
   }, 170);
+})();
+</script>
+
+<script>
+// Release badge — stays in sync with GitHub releases.
+// Baseline: deploy-site.yml replaces __RELEASE_TAG__ with the current tag.
+// Live: fetch /api/release (the Worker) so it updates without a redeploy.
+// Local/no-release: the sentinel is untouched and the fetch fails or returns
+// null, so the badge stays hidden.
+(function () {
+  var b = document.getElementById("release-badge");
+  if (!b) return;
+  var SENTINEL = "__RELEASE_TAG__";
+  function show(tag) {
+    if (tag) { b.textContent = tag; b.hidden = false; }
+    else { b.hidden = true; }
+  }
+  var baked = b.textContent.trim();
+  show(baked === SENTINEL ? null : baked);
+  fetch("/api/release")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.tag) show(d.tag); })
+    .catch(function () {});
 })();
 </script>
 

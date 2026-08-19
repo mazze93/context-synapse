@@ -1,8 +1,15 @@
-# ContextSynapse landing page — Cloudflare Workers static assets.
+# ContextSynapse landing page — Cloudflare Worker + static assets.
 # Deploy (from site/):  npx wrangler deploy
 # First time:           npx wrangler login
+#
+# The Worker (src/index.js) serves GET /api/release (latest GitHub Release,
+# edge-cached) and passes everything else through to public/ via the ASSETS
+# binding. CI deploys this on push to main (site/**) and on each release —
+# see .github/workflows/deploy-site.yml.
 name = "contextsynapse-site"
+main = "src/index.js"
 compatibility_date = "2026-07-01"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"

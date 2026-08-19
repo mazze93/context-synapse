@@ -27,10 +27,31 @@ Then attach the custom domain (dashboard → Workers & Pages →
 Cloudflare creates the DNS record automatically when the zone
 (`mazzeleczzare.com`) is on the same account.
 
-Alternative: Cloudflare Pages (`npx wrangler pages deploy public`) works
-identically for a static page; the Workers-assets route was chosen so a future
-worker script (e.g. a JSON badge endpoint for release status) can share the
-project.
+## Automated deploy + release sync
+
+`.github/workflows/deploy-site.yml` deploys on push to `main` touching `site/**`,
+on each published GitHub Release, and on manual dispatch. Add two repo secrets to
+activate it (until then the deploy step skips green, never red):
+
+    CLOUDFLARE_API_TOKEN    # Workers Scripts:Edit for the account
+    CLOUDFLARE_ACCOUNT_ID   # the Cloudflare account id
+
+**Staying in sync with releases** works two ways:
+
+- **Live** — the Worker (`src/index.js`) serves `GET /api/release`, the latest
+  GitHub Release as edge-cached JSON. The page fetches it and updates the nav
+  badge without a redeploy.
+- **Baked** — on a release, the deploy workflow injects the tag into the badge's
+  `__RELEASE_TAG__` placeholder as a static baseline (shown before the fetch
+  resolves). Locally / with no release, the badge stays hidden.
+
+Cut a release from the Actions tab via **Cut release** (`cut-release.yml`): give
+it `vX.Y.Z`, it tags `main`, and that triggers `release.yml` (build + publish)
+and `deploy-site.yml` (site resync).
+
+Alternative host: the page is fully self-contained, so Cloudflare Pages
+(`npx wrangler pages deploy public`) or any static host works — you'd only lose
+the `/api/release` Worker endpoint (the baked badge still works).
 
 **Posture note (HIGH):** review the rendered page before first deploy; no
 unreviewed publishes.

@@ -1,0 +1,50 @@
+name: Cut release
+
+# One-click release from the Actions tab: validate a version, tag main, push the
+# tag. Pushing the tag triggers release.yml, which builds + publishes the
+# GitHub Release (and deploy-site.yml then redeploys the site with the new
+# version). This workflow only creates the tag — it deliberately does not build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. v0.3.0 (semver, must not already exist)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version and create tag
+        shell: bash
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'${VERSION}' is not a vMAJOR.MINOR.PATCH tag." >&2
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/${VERSION}" >/dev/null; then
+            echo "::error::Tag ${VERSION} already exists." >&2
+            exit 1
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${VERSION}" -m "Release ${VERSION}"
+          git push origin "${VERSION}"
+
+          echo "::notice::Tagged main as ${VERSION}. release.yml will build and publish; deploy-site.yml will sync the site."

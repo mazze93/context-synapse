@@ -1,0 +1,90 @@
+name: Deploy site
+
+# Publishes the landing page to Cloudflare and keeps it in sync with releases:
+#   - push to main touching site/**  → redeploy the changed site
+#   - a published GitHub Release      → redeploy with the new version injected
+#   - manual dispatch                 → redeploy on demand
+#
+# Requires two repo secrets to actually deploy; without them the deploy step
+# skips (green), so the workflow never fails just because they aren't set yet:
+#   CLOUDFLARE_API_TOKEN   — token with Workers Scripts:Edit for this account
+#   CLOUDFLARE_ACCOUNT_ID  — the Cloudflare account id
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build + deploy landing page
+    runs-on: ubuntu-latest
+    env:
+      # Job-level so the deploy gate below can read it in an `if:` (step-level
+      # env is not reliably in scope for that step's own condition).
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Resolve latest release tag
+        id: rel
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # On a release event, use the event's tag; otherwise ask the API for
+          # the latest published release. Falls back to the empty string when
+          # none exists yet (the badge then stays hidden).
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            tag="${{ github.event.release.tag_name }}"
+          else
+            tag="$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || true)"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Latest release tag: '${tag:-<none>}'"
+
+      - name: Inject release tag into the page
+        shell: bash
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Static baseline so the badge shows before the live /api/release
+          # fetch resolves. The placeholder token lives in public/index.html.
+          if [[ -n "${TAG}" ]]; then
+            # Only the badge element's content — NOT the script's sentinel
+            # constant, which must stay "__RELEASE_TAG__" to detect the
+            # un-injected state. Hence the surrounding >...< anchors.
+            TAG="${TAG}" perl -0pi -e 's/>__RELEASE_TAG__</">".$ENV{TAG}."<"/ge' site/public/index.html
+            echo "Injected ${TAG}"
+          else
+            echo "No release yet — leaving sentinel (badge stays hidden)"
+          fi
+
+      - name: Deploy to Cloudflare
+        id: cf
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: site
+          command: deploy
+
+      - name: Note when secrets are missing
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          echo "::notice::CLOUDFLARE_API_TOKEN not set — skipped deploy. Add CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID repo secrets to activate."
