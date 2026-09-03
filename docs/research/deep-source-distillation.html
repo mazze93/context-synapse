@@ -1,0 +1,272 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Context Synapse — Deep Source Distillation</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: #121721;
+      --panel2: #171d29;
+      --text: #e8edf6;
+      --muted: #9fb0c7;
+      --accent: #7dd3fc;
+      --accent2: #c084fc;
+      --line: #2a3445;
+      --good: #86efac;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; background: linear-gradient(180deg, #090b10, #0f141c 40%, #0b0d12 100%);
+      color: var(--text); font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 36px 20px 80px; }
+    h1, h2, h3 { line-height: 1.15; }
+    h1 { font-size: 2.3rem; margin: 0 0 10px; }
+    h2 { font-size: 1.35rem; margin: 38px 0 14px; color: var(--accent); }
+    h3 { font-size: 1rem; margin: 20px 0 8px; color: var(--accent2); text-transform: uppercase; letter-spacing: .06em; }
+    p, li { color: var(--text); }
+    .lede { font-size: 1.05rem; color: var(--muted); max-width: 920px; }
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; margin: 18px 0;
+      box-shadow: 0 10px 40px rgba(0,0,0,.22);
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    @media (max-width: 920px) { .grid, .grid3 { grid-template-columns: 1fr; } }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+    .tag { display:inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin: 0 8px 8px 0; font-size: .86rem; }
+    .quote { border-left: 3px solid var(--accent2); padding-left: 14px; color: var(--muted); }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #0a0f16; color: #dbeafe;
+    }
+    pre {
+      padding: 18px; border-radius: 16px; border: 1px solid var(--line);
+      overflow: auto; white-space: pre-wrap;
+    }
+    .small { font-size: .92rem; color: var(--muted); }
+    .callout { border: 1px solid #3b2f12; background: rgba(251,191,36,.08); padding: 14px 16px; border-radius: 14px; }
+    .good { border-color: #1f4d32; background: rgba(134,239,172,.08); }
+    .footer { margin-top: 40px; color: var(--muted); font-size: .92rem; }
+    a { color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--line); padding: 10px 12px; vertical-align: top; }
+    th { text-align: left; color: var(--accent); background: var(--panel2); }
+    .mermaid-box { background: #0a0f16; border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  </style>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', theme: 'dark' });
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Context Synapse — Deep Source Distillation</h1>
+      <p class="lede">This dossier pushes past the first-pass literature review and asks a harsher question: what have we been assuming about forgetting, semantic distance, and affect that the sources do not actually justify? The goal is not just synthesis, but sharper unknowns, better constraints, and a visual model that can migrate cleanly into Obsidian.</p>
+      <div>
+        <span class="tag">Bayesian decay</span>
+        <span class="tag">Discounted filters</span>
+        <span class="tag">Semantic rot</span>
+        <span class="tag">Graph retrieval</span>
+        <span class="tag">Affect privacy</span>
+        <span class="tag">Obsidian-ready Mermaid</span>
+      </div>
+    </div>
+
+    <h2>What gets stronger under deeper reading</h2>
+    <div class="grid3">
+      <div class="card"><h3>1 · Forgetting is structured</h3><p>The strongest Bayesian-decay papers do not support “perfect Bayes with noise.” They support discounted updating: recent evidence receives systematically higher weight, often approximated by an exponential forgetting filter rather than a true posterior. That maps well to Context Synapse’s decay layer.</p></div>
+      <div class="card"><h3>2 · Bayes is a metaphor with limits</h3><p>The martingale critique shows LLM in-context learning is not straightforwardly Bayesian. This matters: if Context Synapse overcommits to Bayes as ontology rather than engineering approximation, the design can become elegant but brittle.</p></div>
+      <div class="card"><h3>3 · Structure matters only after gating</h3><p>The graph/code retrieval literature is persuasive, but mostly in settings where a first-pass candidate set already exists. Context Synapse should treat structure-aware retrieval as a second-stage ranker, not a universal base layer.</p></div>
+    </div>
+
+    <h2>Gaps in our current reasoning</h2>
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Theme</th><th>What we have been saying</th><th>What the sources actually warrant</th><th>Gap / hidden question</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Bayesian decay</td>
+            <td>Decay can be treated as a principled Bayesian layer.</td>
+            <td>The best-fit model is often discounted Bayesian filtering or exponential forgetting, not full posterior coherence.</td>
+            <td><strong>Question:</strong> Are we building a normative Bayesian system, or an empirically tuned forgetting controller?</td>
+          </tr>
+          <tr>
+            <td>Prediction error</td>
+            <td>Prediction error should amplify decay.</td>
+            <td>Prediction error is useful, but active inference style systems distinguish state error, outcome error, and policy error.</td>
+            <td><strong>Question:</strong> Which error does Context Synapse actually track, and what wrong behavior follows if we collapse them?</td>
+          </tr>
+          <tr>
+            <td>Semantic rot</td>
+            <td>Rot is semantic distance from lighthouse.</td>
+            <td>Retrieval papers show multiple distances matter: lexical, structural, topological, and task-conditional.</td>
+            <td><strong>Question:</strong> Is rot a scalar, or a bundle of partly independent drifts?</td>
+          </tr>
+          <tr>
+            <td>Lighthouse</td>
+            <td>Lighthouse should remain durable but revisable.</td>
+            <td>That is supported conceptually, but the literature does not tell us how often lighthouse switching is healthy versus destabilizing.</td>
+            <td><strong>Question:</strong> What are the trigger conditions for a lighthouse handoff or split-lighthouse regime?</td>
+          </tr>
+          <tr>
+            <td>Affect</td>
+            <td>Affect belongs off the main path.</td>
+            <td>The privacy literature strongly supports minimization and asynchronous handling, but does not prove affect is useful for memory governance.</td>
+            <td><strong>Question:</strong> What measurable gain justifies any affect collection at all?</td>
+          </tr>
+          <tr>
+            <td>Privacy</td>
+            <td>Local-first solves the main ethical problem.</td>
+            <td>Local-first helps, but reidentification, inference attacks, and stale device state still matter.</td>
+            <td><strong>Question:</strong> What is the adversary model for Context Synapse on a single user device?</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Questions we have been circling without naming</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Identity of the system</h3>
+        <ul>
+          <li>Is Context Synapse primarily a memory system, a policy system, or a narrative safety interface?</li>
+          <li>Does Edgar represent state, judge state, or intervene on state? Those are different powers.</li>
+          <li>Should “rot” be visible to the user as explanation, or only used internally as control?</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Mathematical commitments</h3>
+        <ul>
+          <li>Do we want interpretable decay parameters chosen by hand, or learned parameters calibrated from logs?</li>
+          <li>Should every synapse have one forgetting rate, or multiple rates for lexical drift, structural drift, and utility failure?</li>
+          <li>When a synapse is wrong but central, should it decay faster or be escalated for review instead?</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Retrieval commitments</h3>
+        <ul>
+          <li>What is the cheapest first-pass retrieval stack that preserves flagship clarity?</li>
+          <li>What signals justify graph-aware retrieval in natural-language contexts, not just code repositories?</li>
+          <li>Can lighthouse adjacency be modeled as a graph neighborhood rather than a text similarity score?</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Ethics and user experience</h3>
+        <ul>
+          <li>What is the minimum viable explanation a user needs when Context Synapse discards context?</li>
+          <li>Should affect be opt-in per project, per session, or per device?</li>
+          <li>How do we prevent “friction” from becoming manipulative rather than protective?</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Sharper model of Context Synapse</h2>
+    <div class="panel">
+      <p>The sources suggest a more disciplined architecture than our current language sometimes implies. The cleanest model is: <strong>Context Synapse is a discounted evidence governor over a structured context graph, supervised by explicit policy constraints and optionally informed by asynchronous affect summaries.</strong></p>
+      <div class="quote">That means the system is not “Bayesian all the way down.” It is Bayes-inspired at the synapse layer, graph-aware at the retrieval layer, and policy-constrained at the user-facing layer.</div>
+    </div>
+
+    <h2>Portable Mermaid model</h2>
+    <div class="panel">
+      <p>This diagram is written as plain Mermaid so it can be pasted directly into Obsidian, Markdown docs, GitHub, or static pages. It is intentionally compact enough to stay readable offline, while still exposing the control loops and design tensions.</p>
+      <div class="mermaid-box">
+<pre class="mermaid">flowchart TD
+    U[User / Session] --> Q[Query + Context Cues]
+    Q --> G[Candidate Gatherer
+lexical / trigger / recency]
+    G --> S[Structured Context Graph
+files · notes · concepts · code]
+    S --> R[Semantic Distance Layer
+TF-IDF/BM25 + optional structure ranker]
+    R --> L[Lighthouse Comparator]
+    L --> ROT[Rot Vector
+lexical drift
+structural drift
+utility drift]
+
+    ROT --> D[Decay Engine
+Discounted Bayesian Filter]
+    PE[Prediction Error] --> D
+    P[Prior Mean / Confidence] --> D
+    T[Time + Exposure] --> D
+
+    D --> W[Synapse Weights]
+    W --> A[Assembler
+selected context packet]
+    A --> M[Model Prompt]
+    M --> O[Output]
+    O --> FB[Feedback / Outcome]
+    FB --> PE
+    FB --> PR[Prior Revision]
+    PR --> P
+
+    L --> LF[Lighthouse Floor
+strong but revisable]
+    LF --> W
+
+    AF[Async Affect Layer
+opt-in · coarse · local] -. summary only .-> PR
+    AF -. never raw affect in main path .-> A
+
+    ED[Edgar / Raven Interface] <-- explain --> ROT
+    ED <-- caution / resync --> W
+    ED <-- ritual / narrative --> U
+
+    subgraph Policy Boundary
+      PB1[Privacy Controls
+minimize · retain briefly · redact]
+      PB2[Intervention Rules
+friction · cauterize · resync]
+    end
+
+    PB1 -. constrains .-> AF
+    PB1 -. constrains .-> S
+    PB2 -. constrains .-> ED
+    PB2 -. constrains .-> A
+</pre>
+      </div>
+    </div>
+
+    <h2>How to read the diagram</h2>
+    <div class="grid3">
+      <div class="card"><h3>Synapse is not storage</h3><p>The structured graph is where candidate context lives. Synapse logic begins when candidates are compared to the lighthouse and assigned drift/decay meaning.</p></div>
+      <div class="card"><h3>Rot should become a vector</h3><p>The literature does not justify one scalar rot score. Separate lexical, structural, and utility drift will likely produce better explanations and cleaner interventions.</p></div>
+      <div class="card"><h3>Affect should stay weak</h3><p>Affect belongs as a summarized nudge on priors, never as a real-time routing signal. This is both a privacy result and a design simplification.</p></div>
+    </div>
+
+    <h2>Best next moves</h2>
+    <div class="panel good callout">
+      <ol>
+        <li><strong>Rename the math honestly.</strong> Call v0.x a discounted evidence model rather than implying full Bayesian coherence.</li>
+        <li><strong>Split rot into components.</strong> Start with lexical drift, structural drift, and prediction-error drift.</li>
+        <li><strong>Introduce an adversary model.</strong> Write a short threat model for local logs, exports, and affect summaries.</li>
+        <li><strong>Make lighthouse transitions explicit.</strong> Define when a lighthouse is revised, forked, or retired.</li>
+        <li><strong>Measure affect utility before scaling it.</strong> Require a concrete improvement metric before any richer affect pipeline.</li>
+        <li><strong>Use structure as reranking, not religion.</strong> Keep TF-IDF/BM25 cheap and primary; add graph signals only where they pay rent.</li>
+      </ol>
+    </div>
+
+    <h2>Source notes</h2>
+    <div class="panel small">
+      <p>The most important tensions in this dossier come from three clusters: discounted-filter views of LLM updating, critiques of naïve Bayesian interpretations of in-context learning, and repository-aware graph retrieval work that shows structural signals matter but usually as a second-stage enhancement rather than a universal first principle.</p>
+      <ul>
+        <li>Forgetting as adaptive decay: Tran et al.; discounted Bayesian filter work; evidence forgetting rate summaries.</li>
+        <li>Bayesian caution: martingale critique of ICL as Bayesian.</li>
+        <li>Structure-aware retrieval: GRACE and code-graph retrieval survey literature.</li>
+        <li>Privacy and affect: Emotion AI privacy harms; privacy-preserving affect frameworks.</li>
+      </ul>
+    </div>
+
+    <div class="footer">Prepared as an offline-portable HTML artifact with embedded Mermaid code suitable for Obsidian and static documentation workflows.</div>
+  </div>
+</body>
+</html>
