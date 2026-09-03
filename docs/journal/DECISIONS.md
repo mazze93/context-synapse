@@ -203,3 +203,35 @@
   mechanic (rot gauge → storm, drift → lightning, lighthouse floor → constant
   beam) so the hero animation is the product thesis, not decoration · Reverse:
   delete the brief; leave the static scene.
+- 2026-09-02 · Pinned the remaining GitHub Actions in `ci.yml`, `codeql.yml`,
+  `release.yml` to full commit SHAs (`0008a9c` on `feat/site-deploy-release-sync`):
+  `actions/checkout` → `3d3c42e5` (v7.0.1), `actions/upload-artifact` → `043fb46d`
+  (v7.0.1), `actions/download-artifact` → `3e5f45b2` (v8.0.1),
+  `github/codeql-action/{init,analyze}` → `cdf488f5` (v4.37.9) · completes the
+  hardening started in `3a0dd08` (which pinned only the credentialed
+  wrangler/checkout in the deploy + cut-release workflows); `codeql-action/analyze`
+  runs with `security-events: write` and `release.yml`'s publish job with
+  `contents: write`, so a moved tag there is privileged. SHAs resolved live via
+  the github-mcp-gateway against each version tag; Dependabot's `github-actions`
+  ecosystem bumps pin + trailing `# vX.Y.Z` comment together · Reverse: restore
+  the `@vN` major-tag refs on those eight `uses:` lines.
+- 2026-09-02 · The review comment that triggered the above (on `deploy-site.yml`
+  line 80) was already satisfied by `3a0dd08` at session start — reported as
+  needing no fix, not re-done. Recorded because a reader diffing the PR against
+  the comment will otherwise expect a deploy-site.yml change and find none ·
+  Reverse: n/a (observation).
+- 2026-09-02 · jj recovery incident during the pinning delivery. Adding a commit
+  to `feat/site-deploy-release-sync` while `@` sat on `fix/journal-append-guard-p1`
+  (PR #33) meant repeated `@` moves; a mid-flow `jj git fetch` pulled an upstream
+  `Merge main` onto the PR branch (`87529d69`, pushed by another client) and
+  turned a benign ahead/behind into a bookmark conflict + `urnvkywp` divergence,
+  and the untracked `docs/context-synapse-deep-distillation.html` scratch file was
+  snapshotted-then-dropped 3×. Recovered via `jj op restore <session-start op>`
+  → re-`jj git fetch` → `jj bookmark set fix/journal-append-guard-p1 -r 87529d69
+  --allow-backwards` (origin verified strictly ahead + complete) → `jj abandon`
+  the orphaned dup. No work lost; `fix/journal-append-guard-p1` local now matches
+  origin. Pre-existing unrelated divergence `512a286c`/`7972a44f` ("scaffold
+  known-issues cleanup sweep", an earlier Opus 4.8 session) left untouched ·
+  Lesson captured in global memory: in this colocated repo use `jj new
+  <bookmark>`, never `git checkout`, and park untracked scratch files outside the
+  repo before moving `@` · Reverse: n/a (incident record).
