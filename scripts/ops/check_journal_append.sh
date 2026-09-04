@@ -49,9 +49,16 @@ extract() {
 baseline_entries() {
   {
     git show "$BASE:$ACTIVE" 2>/dev/null | extract || true
-    for f in $(git ls-tree -r --name-only "$BASE" -- "$ARCHIVE_DIR" 2>/dev/null); do
-      git show "$BASE:$f" 2>/dev/null | extract || true
-    done
+    # NUL-delimit the archive paths: a filename with spaces (e.g.
+    # "archive/Sprint One.md") would be word-split by `for f in $(...)`, so
+    # `git show` failed on the fragments and — with the failure suppressed —
+    # that file's decisions silently dropped out of the baseline, letting them
+    # be deleted while the guard still passed (the P1 fixed here). Iterate the
+    # same NUL-safe way working_entries already does, and do NOT suppress a
+    # real `git show` failure: an unreadable baseline path must surface.
+    while IFS= read -r -d '' f; do
+      git show "$BASE:$f" | extract
+    done < <(git ls-tree -rz --name-only "$BASE" -- "$ARCHIVE_DIR" 2>/dev/null)
   } | sort -u
 }
 
