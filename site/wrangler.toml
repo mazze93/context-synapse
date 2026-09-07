@@ -10,6 +10,20 @@ name = "contextsynapse-site"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
 
+# contextsynapse.mazzeleczzare.com (routes below) is the sole canonical URL.
+# Declared explicitly so wrangler stops defaulting these and warning on every
+# deploy. Flip workers_dev = true to also serve the *.workers.dev subdomain.
+workers_dev = false
+preview_urls = false
+
+# Serve the landing page from the custom domain. custom_domain = true makes
+# wrangler provision the DNS record + edge cert on the mazzeleczzare.com zone
+# (same account as the blog/store). The workers.dev subdomain stays live too.
+# Top-level (NOT under [assets]) — TOML scopes keys to the preceding table.
+routes = [
+  { pattern = "contextsynapse.mazzeleczzare.com", custom_domain = true }
+]
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
