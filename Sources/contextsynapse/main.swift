@@ -146,6 +146,26 @@ if let importIndex {
     exit(1)
 }
 
+// MARK: - Instrument verbs (record / export-events / events-summary)
+// Terminal commands that append to or read the observation ledger, then exit.
+// They never touch weights, priors, or circuit state — the ledger is an
+// immutable log that circuit state is folded FROM. See docs/adr/ADR-006.
+// ledgerDirectory resolves to the per-user dir (logDir is <userDir>/logs).
+
+let ledgerDirectory = core.logDir.deletingLastPathComponent()
+
+if args.contains("--record") {
+    exit(RecordCommand.handleRecord(args: args, ledgerDirectory: ledgerDirectory).rawValue)
+}
+
+if args.contains("--export-events") {
+    exit(RecordCommand.handleExportEvents(args: args, ledgerDirectory: ledgerDirectory).rawValue)
+}
+
+if args.contains("--events-summary") {
+    exit(RecordCommand.handleEventsSummary(ledgerDirectory: ledgerDirectory).rawValue)
+}
+
 // MARK: - Regular query processing
 
 var weights = core.loadOrCreateDefaultWeights()
@@ -179,7 +199,9 @@ while i < args.count {
         i += 1; if i < args.count { feedbackFlag = args[i] }
     case "--fault-prob":
         i += 1; if i < args.count { faultProbFlag = args[i] }
-    case "--user", "--lighthouse", "--resync", "--referee":
+    case "--user", "--lighthouse", "--resync", "--referee",
+         "--record", "--export-events", "--synapse", "--repo-token",
+         "--changed-files", "--at", "--source":
         i += 1
     default:
         if providedQuery == nil {
@@ -208,6 +230,9 @@ guard let userQuery = providedQuery?.trimmingCharacters(in: .whitespacesAndNewli
     fputs("       contextsynapse --rsa   (render session RSA heatmap + anchor saliency strip)\n", stderr)
     fputs("       contextsynapse --export <output-file.json> [--metadata key=value ...] [--user <id>]\n", stderr)
     fputs("       contextsynapse --import <input-file.json> [--merge] [--user <id>]\n", stderr)
+    fputs("       contextsynapse --record <event-type> [--synapse <id>] [--verbose]\n", stderr)
+    fputs("       contextsynapse --export-events <output.csv> [--user <id>]\n", stderr)
+    fputs("       contextsynapse --events-summary\n", stderr)
     exit(1)
 }
 
