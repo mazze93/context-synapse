@@ -1,5 +1,7 @@
 # Context Synapse
 
+*Context Synapse is what AI and neurodivergent intelligence have in common: both are brilliant, distracted, and prone to losing the forest for the trees. This is the bridge.*
+
 ![Swift](https://img.shields.io/badge/Swift-5.8%2B-orange)
 ![macOS](https://img.shields.io/badge/macOS-13%2B-blue)
 ![Status](https://img.shields.io/badge/status-v0.3--experimental-yellow)
@@ -275,5 +277,3 @@ log, and v0.4–v1.0 milestones.
 MIT — see [LICENSE](LICENSE).
 
 ---
-
-*Context Synapse is what AI and neurodivergent intelligence have in common: both are brilliant, distracted, and prone to losing the forest for the trees. This is the bridge.*
