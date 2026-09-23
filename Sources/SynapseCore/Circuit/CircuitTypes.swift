@@ -254,15 +254,20 @@ public struct CircuitEdge: Sendable, Codable, Equatable {
     }
 
     public init(source: UUID, target: UUID, weight: Double) {
-        self.id       = UUID()
+        self.init(id: UUID(), source: source, target: target, weight: weight)
+    }
+
+    private init(id: UUID, source: UUID, target: UUID, weight: Double) {
+        self.id       = id
         self.sourceID = source
         self.targetID = target
         self.weight   = max(0.0, min(1.0, weight))
     }
 
-    /// Returns a copy with updated weight (edges are immutable from outside the circuit).
+    /// Returns a copy with updated weight while preserving the edge identity.
+    /// Callers retain the original ID for future updates and persistence references.
     public func withWeight(_ newWeight: Double) -> CircuitEdge {
-        CircuitEdge(source: sourceID, target: targetID, weight: newWeight)
+        CircuitEdge(id: id, source: sourceID, target: targetID, weight: newWeight)
     }
 }
 

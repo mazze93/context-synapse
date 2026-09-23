@@ -21,9 +21,9 @@ while scanIndex < args.count {
 let core = SynapseCore(user: selectedUser)
 
 // MARK: - Lighthouse persistence
-// Stored in AppSupport alongside run logs so Edgar remembers
-// the lighthouse across invocations within a session.
-// File: ~/Library/Application Support/ContextSynapse/<user>/lighthouse.json
+// Stored in the same sanitized per-user AppSupport directory as config,
+// regions, and run logs so Edgar remembers the lighthouse across invocations.
+// File: ~/Library/Application Support/ContextSynapse/users/<sanitized-user>/lighthouse.json
 
 private struct LighthouseRecord: Codable {
     let id: String
@@ -33,16 +33,14 @@ private struct LighthouseRecord: Codable {
     let setAt: String
 }
 
-func lighthouseStorageURL(user: String) -> URL {
-    let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return base
-        .appendingPathComponent("ContextSynapse")
-        .appendingPathComponent(user)
+func lighthouseStorageURL(core: SynapseCore) -> URL {
+    core.usersDir
+        .appendingPathComponent(core.currentUser)
         .appendingPathComponent("lighthouse.json")
 }
 
-func loadLighthouse(user: String) -> SynapseContent? {
-    let url = lighthouseStorageURL(user: user)
+func loadLighthouse(core: SynapseCore) -> SynapseContent? {
+    let url = lighthouseStorageURL(core: core)
     guard let data = try? Data(contentsOf: url),
           let record = try? JSONDecoder().decode(LighthouseRecord.self, from: data) else {
         return nil
@@ -55,8 +53,8 @@ func loadLighthouse(user: String) -> SynapseContent? {
     )
 }
 
-func saveLighthouse(_ content: SynapseContent, user: String) {
-    let url = lighthouseStorageURL(user: user)
+func saveLighthouse(_ content: SynapseContent, core: SynapseCore) {
+    let url = lighthouseStorageURL(core: core)
     try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     let record = LighthouseRecord(
         id: content.id,
@@ -70,8 +68,8 @@ func saveLighthouse(_ content: SynapseContent, user: String) {
     }
 }
 
-func clearLighthouse(user: String) {
-    try? FileManager.default.removeItem(at: lighthouseStorageURL(user: user))
+func clearLighthouse(core: SynapseCore) {
+    try? FileManager.default.removeItem(at: lighthouseStorageURL(core: core))
 }
 
 // MARK: - --lighthouse and --resync
@@ -79,7 +77,7 @@ func clearLighthouse(user: String) {
 if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < args.count {
     let label = args[lighthouseIdx + 1]
     let content = SynapseContent(id: UUID().uuidString, text: label)
-    saveLighthouse(content, user: selectedUser)
+    saveLighthouse(content, core: core)
 
     RavenRenderer.render(state: .perched, frameIndex: 0, lighthouseLabel: label, rotScore: 0.0)
     print("")
@@ -89,7 +87,7 @@ if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < 
 }
 
 if args.contains("--resync") {
-    clearLighthouse(user: selectedUser)
+    clearLighthouse(core: core)
     RavenRenderer.render(state: .resync, frameIndex: 0, lighthouseLabel: nil, rotScore: 0.0)
     print("")
     print("\u{001B}[38;5;51m⚓ Lighthouse cleared. Set a new one with --lighthouse \"description\"\u{001B}[0m")
@@ -277,7 +275,7 @@ let currentContent = SynapseContent(
     functionNames: []
 )
 
-let activeLighthouse = loadLighthouse(user: selectedUser)
+let activeLighthouse = loadLighthouse(core: core)
 var rotScore: Double = 0.0
 var edgarState: RavenState = .dormant
 
@@ -330,7 +328,7 @@ let run = SynapseCore.RunLog(
     chosenDomain: chosenDomain,
     assembledPrompt: finalPrompt,
     context: [
-        "user":       selectedUser,
+        "user":       core.currentUser,
         "app":        flagApp ?? "unknown",
         "focus":      flagFocus ?? "unknown",
         "timeBucket": activeTriggers.joined(separator: ","),

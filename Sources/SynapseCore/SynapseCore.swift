@@ -282,6 +282,18 @@ public class SynapseCore {
     
     /// Fault injection probability (0.0 by default). Can be set via env var CONTEXT_SYNAPSE_FAULT_PROB
     public var faultProbability: Double = 0.0
+
+    /// Sanitize a user identifier so it can only name a local state directory.
+    /// Path separators, traversal dots, whitespace, and other punctuation are dropped;
+    /// ASCII letters, digits, hyphen, and underscore are preserved.
+    public static func sanitizeUserIdentifier(_ user: String) -> String {
+        let allowedScalars = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_".unicodeScalars)
+        var sanitized = ""
+        for scalar in user.unicodeScalars where allowedScalars.contains(scalar) {
+            sanitized.unicodeScalars.append(scalar)
+        }
+        return sanitized
+    }
     
     /// Simple logging helper for debugging and error tracking
     private func logError(_ message: String, error: Error? = nil) {
@@ -290,15 +302,11 @@ public class SynapseCore {
     }
     
     public init(folderName: String = "ContextSynapse", user: String = "default") {
-        // Validate and sanitize user input to prevent directory traversal
-        // Remove path separators and dots to prevent traversal attacks
-        let sanitizedUser = user
-            .components(separatedBy: CharacterSet(charactersIn: "/\\:."))
-            .joined()
+        // Validate and sanitize user input to prevent directory traversal.
+        let sanitizedUser = Self.sanitizeUserIdentifier(user)
         
-        // Ensure the sanitized user is not empty and is alphanumeric with limited special chars
-        guard !sanitizedUser.isEmpty,
-              sanitizedUser.rangeOfCharacter(from: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))) != nil else {
+        // Ensure the sanitized user is not empty after dropping unsupported characters.
+        guard !sanitizedUser.isEmpty else {
             fatalError("Invalid user identifier: must contain alphanumeric characters")
         }
         

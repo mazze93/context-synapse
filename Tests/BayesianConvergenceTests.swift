@@ -11,11 +11,19 @@ final class BayesianConvergenceTests: XCTestCase {
     }
 
     @discardableResult
-    private func runProcess(executable: String, arguments: [String], in directory: URL) throws -> (status: Int32, stdout: String, stderr: String) {
+    private func runProcess(
+        executable: String,
+        arguments: [String],
+        in directory: URL,
+        environment: [String: String]? = nil
+    ) throws -> (status: Int32, stdout: String, stderr: String) {
         let process = Process()
         process.currentDirectoryURL = directory
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
+        if let environment {
+            process.environment = environment
+        }
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -208,6 +216,56 @@ final class BayesianConvergenceTests: XCTestCase {
         XCTAssertEqual(reloadedRegions.map { $0.name }, ["NorthAmerica", "EMEA", "APAC"])
     }
 
+
+    func testUserIdentifierSanitizationDropsUnsupportedCharacters() throws {
+        let rawUser = " Ada/../Name:🔥_Team-42 "
+        XCTAssertEqual(SynapseCore.sanitizeUserIdentifier(rawUser), "AdaName_Team-42")
+
+        let core = SynapseCore(
+            folderName: "ContextSynapseTests_UserSanitize_\(UUID().uuidString)",
+            user: rawUser
+        )
+        defer { try? FileManager.default.removeItem(at: core.appSupport) }
+
+        XCTAssertEqual(core.currentUser, "AdaName_Team-42")
+        XCTAssertTrue(core.configURL.path.contains("/users/AdaName_Team-42/config.json"))
+    }
+
+    func testLighthouseUsesSanitizedUserDirectory() throws {
+        let executable = try ensureCLIExecutable()
+        let rawUser = "../Ada.Name-\(UUID().uuidString)"
+
+        let setResult = try runProcess(
+            executable: executable.path,
+            arguments: ["--user", rawUser, "--lighthouse", "Keep research local"],
+            in: repositoryRootURL()
+        )
+        XCTAssertEqual(setResult.status, 0, "Lighthouse command failed.\nstdout:\n\(setResult.stdout)\nstderr:\n\(setResult.stderr)")
+
+        let verificationCore = SynapseCore(user: rawUser)
+        let expectedURL = verificationCore.usersDir
+            .appendingPathComponent(verificationCore.currentUser)
+            .appendingPathComponent("lighthouse.json")
+        let legacyUnsafeURL = verificationCore.appSupport
+            .appendingPathComponent(rawUser)
+            .appendingPathComponent("lighthouse.json")
+        defer {
+            try? FileManager.default.removeItem(at: verificationCore.usersDir.appendingPathComponent(verificationCore.currentUser))
+            try? FileManager.default.removeItem(at: legacyUnsafeURL.deletingLastPathComponent().standardizedFileURL)
+        }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expectedURL.path), "Lighthouse should be stored with the sanitized user state")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyUnsafeURL.standardizedFileURL.path), "Lighthouse should not be written through the raw --user path")
+
+        let queryResult = try runProcess(
+            executable: executable.path,
+            arguments: ["--user", rawUser, "stay aligned"],
+            in: repositoryRootURL()
+        )
+        XCTAssertEqual(queryResult.status, 0, "Query command failed.\nstdout:\n\(queryResult.stdout)\nstderr:\n\(queryResult.stderr)")
+        XCTAssertTrue(queryResult.stdout.contains("Keep research local"), "Query should reload the lighthouse from the sanitized user state")
+    }
+
     func testExportAndImportAcceptUserFlagBeforeCommandFlag() throws {
         let executable = try ensureCLIExecutable()
         let tempDir = FileManager.default.temporaryDirectory
@@ -220,7 +278,7 @@ final class BayesianConvergenceTests: XCTestCase {
             in: repositoryRootURL()
         )
         XCTAssertEqual(exportResult.status, 0, "Export command failed.\nstdout:\n\(exportResult.stdout)\nstderr:\n\(exportResult.stderr)")
-        XCTAssertTrue(exportResult.stdout.contains("Successfully exported state"), "Unexpected export output: \(exportResult.stdout)")
+        XCTAssertTrue(exportResult.stdout.contains("session folded"), "Unexpected export output: \(exportResult.stdout)")
         XCTAssertTrue(FileManager.default.fileExists(atPath: exportFile.path), "Export file was not created")
 
         let importResult = try runProcess(
@@ -232,5 +290,38 @@ final class BayesianConvergenceTests: XCTestCase {
         XCTAssertTrue(importResult.stdout.contains("Successfully imported state"), "Unexpected import output: \(importResult.stdout)")
 
         try? FileManager.default.removeItem(at: exportFile)
+    }
+}
+
+extension BayesianConvergenceTests {
+    func testUpdatingEdgeWeightPreservesEdgeIdentity() async throws {
+        let circuit = SynapticCircuit()
+        let source = SynapticNode(synapseID: "source")
+        let target = SynapticNode(synapseID: "target")
+        let edge = CircuitEdge(source: source.id, target: target.id, weight: 0.2)
+
+        await circuit.register(source)
+        await circuit.register(target)
+        await circuit.connect(edge)
+        await circuit.updateEdgeWeight(id: edge.id, weight: 0.8)
+        await circuit.updateEdgeWeight(id: edge.id, weight: 0.5)
+
+        let snapshot = await circuit.snapshot()
+        XCTAssertEqual(snapshot.edges.count, 1)
+        XCTAssertEqual(snapshot.edges.first?.id, edge.id)
+        XCTAssertEqual(snapshot.edges.first?.weight, 0.5)
+    }
+
+    func testFaultInjectionReportsIsolatedNodeAsTooIsolated() async throws {
+        let circuit = SynapticCircuit()
+        let isolatedNode = SynapticNode(synapseID: "isolated")
+        await circuit.register(isolatedNode)
+        _ = await circuit.forwardPass()
+
+        let report = await circuit.injectFault(intoSynapse: "isolated", severity: 1.0)
+        XCTAssertEqual(report.propagationDepth, 0)
+        XCTAssertEqual(report.affectedNodeCount, 0)
+        XCTAssertTrue(report.isTooIsolated)
+        XCTAssertFalse(report.isHealthy)
     }
 }
