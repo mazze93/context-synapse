@@ -3,7 +3,7 @@
 **Status:** PRE-REGISTRATION. Commit this file **before** the first observation
 is recorded. Its value is entirely destroyed if edited after data exists.
 
-**Registered:** _______________ (fill in, then commit)
+**Registered:** 2026-09-27
 **Ledger start:** first `timestamp` in `events.jsonl`
 **Analysis window:** 30 calendar days from ledger start
 **Analyst:** Mazze LeCzzare Frazer (also the subject — see Bias Controls)
