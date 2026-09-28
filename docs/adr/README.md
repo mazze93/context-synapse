@@ -34,9 +34,23 @@ Cited in code as `ADR-002/003/004` in `Circuit/CircuitTypes.swift` and
 `Circuit/SynapticCircuit.swift`. See also [INTEGRATION.md](INTEGRATION.md) for the
 wiring recipe between the circuit and the decay layer.
 
+## Track C — Instrument layer (v0.4 observation ledger)
+
+Numbered continuing from 005 to avoid a third collision with Tracks A and B.
+
+| ID | Decision | Record |
+|----|----------|--------|
+| ADR-005 | GUI write-failure verification | [ADR-005-gui-write-failure-verification.md](ADR-005-gui-write-failure-verification.md) |
+| ADR-006 | Ledger separation — Stratum and Context Synapse share a discipline, not a store | [ADR-006-ledger-separation.md](ADR-006-ledger-separation.md) |
+
+See also [../INSTRUMENT.md](../INSTRUMENT.md) for the producer wiring,
+[../../FALSIFICATION.md](../../FALSIFICATION.md) for the pre-registered
+predictions, and [../DATA-CLASSIFICATION.md](../DATA-CLASSIFICATION.md) for the
+field-level handling rules the instrument enforces.
+
 ## Known wart
 
 Tracks A and B both use 002–004. Source comments depend on the current numbers,
 so a renumber is deferred until it can be done atomically across code and docs.
 Until then, read any `ADR-00X` reference in its domain context — referee/ethics
-(Track A) versus circuit/math (Track B).
+(Track A) versus circuit/math (Track B) versus instrument (Track C, 005+).
