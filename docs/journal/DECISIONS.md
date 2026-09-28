@@ -235,3 +235,16 @@
   Lesson captured in global memory: in this colocated repo use `jj new
   <bookmark>`, never `git checkout`, and park untracked scratch files outside the
   repo before moving `@` · Reverse: n/a (incident record).
+- 2026-09-27 · Signed off `docs/DATA-CLASSIFICATION.md` D1–D4 + R1 and kicked
+  off the instrument layer: D1 codenames-only labels, D2 FileVault-only (no
+  app-layer encryption; verified Application Support path is not under iCloud
+  Drive), D3 30-day retention with delete-at-study-end, D4 secure-pride repos
+  excluded from the initial study · Filled the `Registered` date in
+  `FALSIFICATION.md` and committed it ahead of installing the hook, per
+  `docs/INSTRUMENT.md`'s order of operations (sign-off → date the
+  pre-registration → install → collect) · Installed `scripts/hooks/post-commit`
+  into this repo via `scripts/install-git-hook.sh .` · Reverse: `rm
+  events.jsonl` empties the ledger; `bash scripts/install-git-hook.sh
+  --uninstall .` removes the hook; the sign-off/date commits themselves are not
+  reversed in place — a correction gets a new dated entry, not an edit to this
+  one.

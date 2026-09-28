@@ -1,7 +1,8 @@
 # Data Classification — Instrument Layer
 
-**Status:** PROPOSED — requires sign-off before the hook is installed on
-any secure-pride-adjacent repository.
+**Status:** SIGNED OFF 2026-09-27 — see Sign-off section. Hook install for
+this repo follows in the same session; secure-pride repos remain excluded
+per D4.
 
 **Scope:** the `post-commit` observer, the `--record` CLI verb, and
 `events.jsonl`. Does not cover `config.json`, `lighthouse.json`, or run logs,
@@ -133,10 +134,17 @@ privacy issue.
 
 ## Sign-off
 
-- [ ] D1 synapse-label policy accepted
-- [ ] D2 encryption posture accepted
-- [ ] D3 retention period set: __________
-- [ ] D4 secure-pride exclusion confirmed
-- [ ] R1 publication constraint (elapsed time only) accepted
+- [x] D1 synapse-label policy accepted — project-internal codenames only, never
+  client-identifying strings; every label treated as if it will be published
+- [x] D2 encryption posture accepted — FileVault only, no application-layer
+  encryption; verified `~/Library/Application Support/ContextSynapse` is a
+  plain local path, not under `~/Library/Mobile Documents` (iCloud Drive)
+- [x] D3 retention period set: 30 days — delete `events.jsonl` at study end,
+  retain only derived aggregates from the paper; calendar reminder at day 30
+- [x] D4 secure-pride exclusion confirmed — hook not installed on any
+  `secure-pride/*` repo for this initial study
+- [x] R1 publication constraint (elapsed time only) accepted — published
+  figures use elapsed time from ledger start, never wall-clock timestamps or
+  a time-of-day axis
 
-Signed: ______________________  Date: ______________
+Signed: Mazze LeCzzare Frazer  Date: 2026-09-27
