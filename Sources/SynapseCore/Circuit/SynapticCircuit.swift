@@ -363,6 +363,7 @@ public actor SynapticCircuit {
                     }
                 }
             }
+            guard !next.isEmpty else { break }
             frontier = next
             depth += 1
         }

@@ -248,3 +248,6 @@
   --uninstall .` removes the hook; the sign-off/date commits themselves are not
   reversed in place — a correction gets a new dated entry, not an edit to this
   one.
+
+- 2026-10-05 · Reconcile PR #40 with current main before storage repair: keep main's edge identity, LighthouseStore migration, strict concurrency, GUI persistence seam and later session/ledger work; retain PR #40's isolated-frontier depth fix and move its new circuit coverage to a sibling test file · PR #44 contains overlapping older implementations but is not an ancestor of main; its unique-added-file check against main is empty, which alone does not establish commit equivalence. No PR was closed or merged · reverse: revert the PR #40 repair commit, not the earlier main changes.
+- 2026-10-05 · Preserve safe raw user names (including spaces and dots) instead of dropping characters; reject invalid input with a recoverable error before state writes; refuse ambiguous legacy aliases and profile/case conflicts rather than guessing ownership · preserves existing space-named config/regions/logs/session state and uses main's raw-name lighthouse migration. A historical dot-stripped directory must be selected explicitly or backed up and renamed by its owner · reverse: provide an explicit, owner-confirmed migration tool before relaxing ambiguity checks.

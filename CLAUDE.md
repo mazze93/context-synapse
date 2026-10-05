@@ -319,7 +319,7 @@ a lighthouse is loaded.
 
 - No external dependencies — `Package.swift` stays dependency-free
 - Atomic writes (`options: .atomic`) for all state persistence
-- User input sanitized at `SynapseCore.init` boundary (strips `/`, `\`, `:`, `.` from folder names)
+- Explicit user input validated at the throwing `SynapseCore.init(folderName:user:baseOverride:)` boundary; safe names are preserved exactly. Separators/control characters are rejected, and ambiguous legacy aliases require an explicit owner decision. The built-in default initializer remains nonthrowing.
 - Errors → stderr (`StandardErrorStream`); stdout is machine-readable output only
 - Tests use unique UUID folder names for isolation — never break this pattern, never share state between test cases
 - All bedrock output types must be `Sendable` — they cross actor isolation boundaries

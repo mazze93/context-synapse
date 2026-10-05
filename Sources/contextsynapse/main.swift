@@ -11,14 +11,24 @@ let args = CommandLine.arguments
 var selectedUser = "default"
 var scanIndex = 1
 while scanIndex < args.count {
-    if args[scanIndex] == "--user", scanIndex + 1 < args.count {
+    if args[scanIndex] == "--user" {
+        guard scanIndex + 1 < args.count, !args[scanIndex + 1].hasPrefix("--") else {
+            fputs("--user requires an identifier\n", stderr)
+            exit(2)
+        }
         selectedUser = args[scanIndex + 1]
         break
     }
     scanIndex += 1
 }
 
-let core = SynapseCore(user: selectedUser)
+let core: SynapseCore
+do {
+    core = try SynapseCore(user: selectedUser)
+} catch {
+    fputs("Invalid --user: \(error.localizedDescription)\n", stderr)
+    exit(2)
+}
 
 // MARK: - --lighthouse and --resync
 // Persistence lives in SynapseCore (LighthouseStore.swift) so the GUI and
