@@ -49,6 +49,25 @@ public struct SynapseWeightState {
         self.distanceStrategy = distanceStrategy
     }
 
+    /// Restore a session-persistent state from a SynapseSnapshot
+    /// (SynapseManager, v0.4). Interaction history and clocks survive across
+    /// process invocations — the fix for the ephemeral-state class of bugs.
+    public init(
+        restoring snapshot: SynapseSnapshot,
+        sessionStart: Date,
+        distanceStrategy: SemanticDistanceStrategy = StructuralHeuristicDistance()
+    ) {
+        self.synapseId = snapshot.id
+        self.isLighthouse = snapshot.isLighthouse
+        self.childCount = snapshot.childCount
+        self.rotScore = snapshot.rotScore
+        self.requiresCauterization = snapshot.rotScore >= DecayConstants.rotCauterizeThreshold
+        self.interactions = snapshot.interactions
+        self.lastInteractionAt = snapshot.lastInteractionAt
+        self.sessionStart = sessionStart
+        self.distanceStrategy = distanceStrategy
+    }
+
     // MARK: - Interaction recording
     public mutating func record(_ event: InteractionEventType) {
         let record = InteractionRecord(eventType: event, synapseId: synapseId)
@@ -110,9 +129,18 @@ public struct SynapseWeightState {
     // RotScore(s) = D(s, lighthouse) · tanh(T_drift / T_threshold) · VelocityAmplifier
     // Lighthouse synapses cannot rot (RotScore always 0.0).
     // Design ref: Ops Manual §5.2
+    //
+    // driftReference: the timestamp the drift clock counts FROM. Defaults to
+    // this synapse's own lastInteractionAt (session-persistent callers, v0.4
+    // SynapseManager). Per-query callers whose SynapseWeightState is ephemeral
+    // (the CLI) MUST pass the lighthouse's clock (e.g. its setAt) instead:
+    // a synapse born microseconds ago has tDrift ≈ 0, tanh(0) = 0, and rot
+    // can never fire — the drift clock belongs to the lighthouse, not to a
+    // freshly constructed synapse.
     public mutating func recomputeRotScore(
         content: SynapseContent,
         lighthouse: SynapseContent,
+        driftReference: Date? = nil,
         at now: Date = Date()
     ) {
         guard !isLighthouse else {
@@ -122,7 +150,7 @@ public struct SynapseWeightState {
         }
 
         let distance = distanceStrategy.distance(from: content, to: lighthouse)
-        let tDrift = now.timeIntervalSince(lastInteractionAt)
+        let tDrift = now.timeIntervalSince(driftReference ?? lastInteractionAt)
         let tRatio = tDrift / DecayConstants.rotThresholdSeconds
         let tanhFactor = tanh(tRatio)
 

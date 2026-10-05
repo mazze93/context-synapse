@@ -35,7 +35,11 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        # Pinned to a full commit SHA. Dependabot (github-actions ecosystem)
+        # bumps the pin and the trailing version comment together.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Show toolchain versions
         shell: bash
@@ -53,6 +57,23 @@ jobs:
             [[ -z "${path}" ]] && continue
             test -e "${path}" || { echo "Missing required path: ${path}" >&2; exit 1; }
           done <<< "${REQUIRED_REPO_FILES}"
+
+      - name: Verify journal append-only invariant
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT}" == "pull_request" ]]; then
+            base="origin/${BASE_REF}"
+          else
+            base="${BEFORE_SHA:-}"
+            [[ "${base}" =~ ^0*$ ]] && base="HEAD^"   # branch-creation / empty
+          fi
+          git rev-parse -q --verify "${base}" >/dev/null 2>&1 || base="HEAD^"
+          scripts/ops/check_journal_append.sh "${base}"
 
       - name: Verify tracked generated and editor artifacts
         shell: bash
@@ -155,7 +176,7 @@ jobs:
 
       - name: Upload CI diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ci-diagnostics-${{ github.run_id }}
           if-no-files-found: ignore

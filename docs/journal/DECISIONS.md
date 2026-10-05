@@ -1,0 +1,253 @@
+# Decisions — append-only
+
+- 2026-07-22 · Discarded the local GitButler branch state; `main` reset to
+  `origin/main` (`2b70c48`) · **Salvage audit first — nothing was thrown away
+  unexamined.** GitButler had left this repo on `gitbutler/workspace`, 13
+  commits ahead of `origin/main` and 3 behind, with unresolved conflict markers
+  **committed into history** across 5 files (its `<<<<<<< New base:` /
+  `Common ancestor` / `Current commit:` rebase format) and commit messages with
+  words run together and dropped (e.g. `fix(docs): …docsRemove leftover markers
+  CLAUDE and docs/j/CHECKPOINT.md,`).
+  Audit method and result: the merge base was `d25ace4` — the **squash-merge of
+  PR #22 itself** — meaning the 7 "clean-looking" commits were the sweep's work
+  *re-applied on top of its own squashed merge*, which is what generated the
+  conflicts. `git diff origin/main HEAD` showed **141 insertions / 631
+  deletions**; filtering conflict markers and blank lines out of the additions
+  left only (a) stale journal prose describing PR #22 as still open, and (b) one
+  `CLAUDE.md` "Local-first" bullet that `origin/main` already carries in a
+  strictly longer form (main's adds the `FoundationModelsClient` on-device
+  clause). **Zero unique source or test code.** `ml-branch-2` was audited
+  separately (its head `e41e70e` was not among the 13) and contained the same
+  stale prose and nothing else.
+  Meanwhile local was *missing* four files that exist on main —
+  `Sources/SynapseCore/{AIProvenance,FoundationModelsClient}.swift` and their
+  tests — from merged PR #24. The local branch was strictly worse than main.
+  Verified after reset: no conflict markers in HEAD, all four files restored,
+  `swift build` clean, `swift test --parallel` exit 0 with 216 tests and zero
+  errors.
+  **Untouched by this:** `chore/v0.3-cleanup-and-doc-sync` (PR #20, still open,
+  22 commits) and `claude/v0.3-ci-repair-and-p1` both survive intact.
+  Reverse: `git reset --hard backup/gitbutler-workspace-2026-07-22` (and
+  `backup/ml-branch-2-2026-07-22` for the other head) — both annotated tags
+  preserve the exact pre-reset commits.
+- 2026-07-15 · Fix SynapticCircuitTests by renaming `Prior` → `SynapticPrior`
+  in the test file (not a typealias shadow) · CLAUDE.md declares the two types
+  intentionally separate; a typealias would re-blur exactly the ambiguity the
+  rename removed · Reverse: sed the name back.
+- 2026-07-15 · Untrack `.vscode/settings.json` rather than allowlist it in CI ·
+  Workspace v2 retired VS Code config; the guardrail is correct, the tracked
+  file is the bug · Reverse: `git checkout main -- .vscode/settings.json`.
+- 2026-07-15 · `minutesInDrift` computed from `LighthouseRecord.setAt` (was
+  hardcoded 15) · The record now travels to the CLI via LighthouseStore, so the
+  known-issue fix costs two lines here · Reverse: restore literal 15.
+- 2026-07-15 · BreadcrumbWriter writes one file per run (`breadcrumb-<iso>.txt`,
+  atomic) rather than appending a single growing log · matches the `logRun`
+  per-run pattern; CLAUDE.md said "append" but a shared append file breaks the
+  single-writer assumption already flagged in Known Issues · Reverse: switch to
+  FileHandle append on one path.
+- 2026-07-15 · Landing page second color is amber (#f0b445) = the lighthouse
+  beam; cyan stays Edgar/system · the two voices of the scene are the two
+  voices of the palette · Reverse: collapse to cyan-only.
+- 2026-07-15 · Breadcrumb prints to stdout before the prompt · CLAUDE.md P1
+  spec says "emit a re-sync line before the prompt"; RavenRenderer already uses
+  stdout, so the machine-readable-stdout rule is already scoped to the prompt
+  line itself · Reverse: route through stderr.
+- 2026-07-18 · Resolved PR #20 (`chore/v0.3-cleanup-and-doc-sync`) merge
+  conflicts entirely in favor of `main`, including removing 5 non-conflicting
+  files (`DecayConstants.swift`, `SynapseContent.swift`,
+  `SynapseWeightStateTests.swift`, `SynapseRefereeTests.swift`,
+  `SemanticDistanceTests.swift`) that git's auto-merge had silently added ·
+  Verified by content, not commit messages, that the branch diverged before
+  v0.3 bedrock/v0.4 landed and its unique changes were an abandoned file split
+  that never shipped — keeping it would duplicate types already defined
+  inline in `main`'s `InteractionRecord.swift`, the same failure class as the
+  `Prior`/`SynapticPrior` incident · Reverse: `git revert` commit `5120f97` on
+  `chore/v0.3-cleanup-and-doc-sync` (not yet merged into `main`).
+
+---
+
+## Sprint — known-issues cleanup sweep (2026-07-18)
+
+- 2026-07-18 · Cap unbounded prior growth by **mean-preserving
+  renormalization** (scale alpha & beta down proportionally when their sum
+  exceeds a cap) rather than clamping alpha/beta independently · preserving the
+  ratio keeps `probability()` and the mapped weight stable while bounding
+  evidence weight — independent clamps would silently shift the mean · Reverse:
+  remove the cap check in `applyFeedbackUpdate`'s `bump`.
+- 2026-07-18 · touchstone pass on the prior-growth cap: HELD · probed
+  composition (is `applyFeedbackUpdate` the only unbounded accumulator? — yes;
+  circuit `SynapticPrior` already self-caps via `isOssified`, import merge
+  averages) and spec (does `mapPriorToWeight` depend only on the ratio? — yes,
+  `probability()` only, so renorm leaves weights unchanged) · perimeter: GUI
+  error banner not driven against a real disk failure (no GUI test target);
+  cap=200 is policy not correctness.
+- 2026-07-18 · Silent GUI write failures: `saveWeights`/`saveRegions`/`logRun`
+  now `@discardableResult -> Bool` (CLI discards, unaffected); `AppViewModel`
+  gains `@Published lastError`, set on failure and shown as a dismissable
+  banner in `ContentView` · disk-I/O errors previously only reached stderr,
+  invisible in the GUI · Reverse: restore `Void` returns and drop `lastError`.
+- 2026-07-18 · `emitDriftEvent` no longer prints to stdout · new
+  `CircuitDriftEvent` Sendable type + `SynapticCircuit.init(driftSink:)`
+  injection point; default `stderrDriftSink` keeps the signal but off the
+  machine-readable stdout channel (Coding Conventions) · touchstone perimeter:
+  the `drift > 0.1` branch is unreachable via public backwardPass under shipped
+  `etaBase = 0.1` (max single-pass mean movement ≈ 0.024), so end-to-end firing
+  is untested — pre-existing property, not introduced here · Reverse: restore
+  the `print(...)` in emitDriftEvent and drop the sink parameter.
+- 2026-07-18 · Multi-process write collision resolved as DOCUMENTATION, not a
+  lock · README gains a prominent single-writer note + the `saveWeights` doc
+  comment states the contract; actual file-locking enforcement stays v1.0 · the
+  Known Issue text explicitly asked for the assumption to be "documented
+  prominently"; a lock is a larger, separate change · Reverse: delete the note
+  and doc comment.
+- 2026-07-18 · Close the GUI-write-failure test perimeter (Link 1 only) via a
+  `baseOverride: URL?` DI seam on `SynapseCore.init` + `PersistenceFailureTests`
+  (read-only temp dir → real EACCES → `save*` return false), guarded against
+  root · ADR-005 records the full strategy: Link 2 (ViewModel reflection)
+  deferred until `AppViewModel` moves to a library target, Link 3 (SwiftUI
+  banner render) accepted as inherent perimeter (needs XCUITest, near-zero
+  marginal value) · added to PR #22 since it closes that PR's own documented
+  perimeter · Reverse: drop `baseOverride` + delete the test; prod path
+  unchanged.
+
+---
+
+## Sprint — on-device AI client + provenance (2026-07-21, PR #24, merged 4a1f65c)
+
+- 2026-07-21 · FoundationModels API surface confirmed by SDK type-check probes
+  (`SystemLanguageModel.default.availability`, `LanguageModelSession().respond`,
+  `supportedLanguages`) before writing any client code · getting symbol names
+  wrong = won't compile; the API is macOS 26+ and undocumented in our training ·
+  Reverse: n/a (evidence step).
+- 2026-07-21 · `FoundationModelsClient` double-guarded `#if
+  canImport(FoundationModels)` + `@available(macOS 26)` · framework ships only
+  in the macOS 26+ SDK, but CI runs macos-15 and the package deploys to macOS
+  13 — canImport compiles the file out on CI (still builds), @available gates
+  runtime use · **consequence: CI never compiles this code; only local macOS
+  26+ does** — verified end-to-end locally instead · Reverse: delete the file.
+- 2026-07-21 · AI provenance/benchmark records persist **on-device only**
+  (`SynapseCore.recordAIBenchmark` → Application Support), never stdout · records
+  carry a host fingerprint (chip/model/memory/OS); stdout is a CI-log leak
+  channel and CI logs are public · enforced by
+  `AIProvenanceTests.testBenchmarkRecordsStayOnDeviceNotInRepo` (portable) +
+  `.gitignore` defense-in-depth; full benchmark JSON deliberately kept out of
+  the PR body too · Reverse: remove `recordAIBenchmark` + the containment test.
+
+---
+
+## Pivot — GitButler → jujutsu (2026-08-18)
+
+- 2026-08-18 · Adopt jujutsu (jj) as the VCS porcelain for context-synapse,
+  colocated over the existing git repo · GitButler blocked raw commits (managed
+  pre-commit hook) and a stacked rebase wrote conflict markers into tracked
+  files that broke the build (see 2026-07-22 salvage audit); jj makes conflicts
+  first-class / non-blocking, gives `jj undo` + stable change IDs, and is
+  terminal-native (fits Zed + shell). Global `~/.config/jj/config.toml` already
+  supplies the fleet-wide "just works" layer GitButler lacked · Reverse:
+  `rm -rf .jj` — colocated, so `.git` is untouched; instantly back to plain git.
+- 2026-08-18 · Colocate (`jj git init --colocate`) rather than a jj-native
+  clone · keeps `.git` authoritative so `github-mcp-gateway`, GitHub Actions,
+  and `gh` keep working unchanged; every jj command syncs the git view ·
+  Reverse: same as above.
+- 2026-08-18 · Scope the pivot to this one repo, not all of `~/Projects` · jj is
+  per-repo and pre-1.0 (churn — e.g. branches→bookmarks rename); A/B on the
+  active repo where the conflict pain actually occurred, leave siblings on plain
+  git, decide later · Reverse: n/a (non-adoption is the default elsewhere).
+
+## Reclaim audit — Fable landing page + branch cleanup (2026-08-18)
+
+- 2026-08-18 · The "Edgar flying toward the lighthouse" landing-page scene is
+  UNRECOVERABLE from git · exhaustive search — main, all branches, backup tags
+  (no `site/` at all), git stash (empty), on-disk untracked (none), and all 89
+  GitButler oplog unreachable commits — every `site/public/index.html` that ever
+  existed is byte-identical blob `77cf458` (23KB, keyframes blink/caret/drift
+  only, static raven + static lighthouse glow). The animated flight scene was
+  never committed (matches the global CLAUDE.md "lighthouse scene was lost"
+  note) · Reverse: n/a (nothing to reverse; rebuild fresh is the only path).
+- 2026-08-18 · No branch carries unique content worth reclaiming; main already
+  has everything · proven via jj: `repo-docs-value-trust-dLqaj` and
+  `feature/v0.3-circuit-wiring` have 0 commits vs trunk(); `chore/v0.3-cleanup-
+  and-doc-sync` adds only the deliberately-abandoned DecayConstants/SynapseContent
+  split (0 source added to main); PR #27 `claude/v0.3-ci-repair-and-p1`'s landing
+  page is identical to main and its `fix(review)` 5c8e369 cherry-picks EMPTY onto
+  main (`jj duplicate` → empty ⇒ content already on main; confirmed at
+  LighthouseStore.swift:80) · Reverse: branches/tags not yet deleted — retire
+  decision deferred to user (irreversible remote-branch deletion + open-PR close).
+
+## Sprint — journal made enforceable, bounded, distilled (2026-08-18)
+
+- 2026-08-18 · Reconcile append-only with resource cost via ROTATE + DISTILL,
+  not truncation · unbounded growth of a per-session-loaded log is itself a cost
+  ("a tumor on resource-constrained ops"); but deleting entries loses the
+  lessons. Resolution: `DECISIONS.md` stays append-only; older sprints MOVE
+  verbatim to `docs/journal/archive/`; generalized takeaways distill into
+  `LESSONS.md` (portable, survives project end) · Reverse: delete LESSONS.md +
+  archive/, flatten back to one growing file.
+- 2026-08-18 · Enforce append-only with `scripts/ops/check_journal_append.sh`
+  (pre-commit + CI, mirrors the rot_check.sh pattern) · discipline alone already
+  failed silently once (salvage audit discarded branches asserting "stale
+  prose"); the guard fails if any dated entry at the baseline is absent from the
+  active+archive union, so rotation passes and deletion/edit fails · guard bug
+  found + fixed during build: entries must terminate on blank lines and any
+  `#`-header (not just `## ` / next bullet), else concatenated files bleed prose
+  into an entry — verified with a 4-case matrix (clean/delete/rotate/edit) ·
+  Reverse: drop the CI step + script.
+- 2026-08-18 · Distinguish CHECKPOINT.md (disposable state pointer, rewritten by
+  design) from DECISIONS.md (append-only log) explicitly in CLAUDE.md · the two
+  were conflated, making the log look "swept" when audit proved it never lost an
+  entry (0 unique-off-main entries across 15 blobs incl. all 89 oplog snapshots)
+  · Reverse: remove the Journal Discipline section.
+- 2026-08-18 · Edgar storm-flight landing scene is a fresh REBUILD, spec captured
+  in `docs/design/edgar-lighthouse-scene-brief.md` · the original is
+  unrecoverable (exhaustive search); the brief maps each beat to a real system
+  mechanic (rot gauge → storm, drift → lightning, lighthouse floor → constant
+  beam) so the hero animation is the product thesis, not decoration · Reverse:
+  delete the brief; leave the static scene.
+- 2026-09-02 · Pinned the remaining GitHub Actions in `ci.yml`, `codeql.yml`,
+  `release.yml` to full commit SHAs (`0008a9c` on `feat/site-deploy-release-sync`):
+  `actions/checkout` → `3d3c42e5` (v7.0.1), `actions/upload-artifact` → `043fb46d`
+  (v7.0.1), `actions/download-artifact` → `3e5f45b2` (v8.0.1),
+  `github/codeql-action/{init,analyze}` → `cdf488f5` (v4.37.9) · completes the
+  hardening started in `3a0dd08` (which pinned only the credentialed
+  wrangler/checkout in the deploy + cut-release workflows); `codeql-action/analyze`
+  runs with `security-events: write` and `release.yml`'s publish job with
+  `contents: write`, so a moved tag there is privileged. SHAs resolved live via
+  the github-mcp-gateway against each version tag; Dependabot's `github-actions`
+  ecosystem bumps pin + trailing `# vX.Y.Z` comment together · Reverse: restore
+  the `@vN` major-tag refs on those eight `uses:` lines.
+- 2026-09-02 · The review comment that triggered the above (on `deploy-site.yml`
+  line 80) was already satisfied by `3a0dd08` at session start — reported as
+  needing no fix, not re-done. Recorded because a reader diffing the PR against
+  the comment will otherwise expect a deploy-site.yml change and find none ·
+  Reverse: n/a (observation).
+- 2026-09-02 · jj recovery incident during the pinning delivery. Adding a commit
+  to `feat/site-deploy-release-sync` while `@` sat on `fix/journal-append-guard-p1`
+  (PR #33) meant repeated `@` moves; a mid-flow `jj git fetch` pulled an upstream
+  `Merge main` onto the PR branch (`87529d69`, pushed by another client) and
+  turned a benign ahead/behind into a bookmark conflict + `urnvkywp` divergence,
+  and the untracked `docs/context-synapse-deep-distillation.html` scratch file was
+  snapshotted-then-dropped 3×. Recovered via `jj op restore <session-start op>`
+  → re-`jj git fetch` → `jj bookmark set fix/journal-append-guard-p1 -r 87529d69
+  --allow-backwards` (origin verified strictly ahead + complete) → `jj abandon`
+  the orphaned dup. No work lost; `fix/journal-append-guard-p1` local now matches
+  origin. Pre-existing unrelated divergence `512a286c`/`7972a44f` ("scaffold
+  known-issues cleanup sweep", an earlier Opus 4.8 session) left untouched ·
+  Lesson captured in global memory: in this colocated repo use `jj new
+  <bookmark>`, never `git checkout`, and park untracked scratch files outside the
+  repo before moving `@` · Reverse: n/a (incident record).
+- 2026-09-27 · Signed off `docs/DATA-CLASSIFICATION.md` D1–D4 + R1 and kicked
+  off the instrument layer: D1 codenames-only labels, D2 FileVault-only (no
+  app-layer encryption; verified Application Support path is not under iCloud
+  Drive), D3 30-day retention with delete-at-study-end, D4 secure-pride repos
+  excluded from the initial study · Filled the `Registered` date in
+  `FALSIFICATION.md` and committed it ahead of installing the hook, per
+  `docs/INSTRUMENT.md`'s order of operations (sign-off → date the
+  pre-registration → install → collect) · Installed `scripts/hooks/post-commit`
+  into this repo via `scripts/install-git-hook.sh .` · Reverse: `rm
+  events.jsonl` empties the ledger; `bash scripts/install-git-hook.sh
+  --uninstall .` removes the hook; the sign-off/date commits themselves are not
+  reversed in place — a correction gets a new dated entry, not an edit to this
+  one.
+
+- 2026-10-05 · Reconcile PR #40 with current main before storage repair: keep main's edge identity, LighthouseStore migration, strict concurrency, GUI persistence seam and later session/ledger work; retain PR #40's isolated-frontier depth fix and move its new circuit coverage to a sibling test file · PR #44 contains overlapping older implementations but is not an ancestor of main; its unique-added-file check against main is empty, which alone does not establish commit equivalence. No PR was closed or merged · reverse: revert the PR #40 repair commit, not the earlier main changes.
+- 2026-10-05 · Preserve safe raw user names (including spaces and dots) instead of dropping characters; reject invalid input with a recoverable error before state writes; refuse ambiguous legacy aliases and profile/case conflicts rather than guessing ownership · preserves existing space-named config/regions/logs/session state and uses main's raw-name lighthouse migration. A historical dot-stripped directory must be selected explicitly or backed up and renamed by its owner · reverse: provide an explicit, owner-confirmed migration tool before relaxing ambiguity checks.

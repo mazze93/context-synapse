@@ -12,13 +12,14 @@ private struct StandardErrorStream: TextOutputStream {
     }
 }
 
-private var standardError = StandardErrorStream()
+// Stateless — constructed locally at call sites; a shared global mutable
+// instance is not concurrency-safe under StrictConcurrency.
 
 // MARK: - AI Platform Integration
 
 /// Protocol for AI platform clients
 public protocol AIClient {
-    func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void)
+    func sendPrompt(_ prompt: String, completion: @escaping @Sendable (Result<String, Error>) -> Void)
 }
 
 /// Configuration for AI platforms
@@ -51,8 +52,8 @@ class BaseHTTPAIClient {
         url: URL,
         headers: [String: String],
         body: [String: Any],
-        responseParser: @escaping ([String: Any]) -> String?,
-        completion: @escaping (Result<String, Error>) -> Void
+        responseParser: @escaping @Sendable ([String: Any]) -> String?,
+        completion: @escaping @Sendable (Result<String, Error>) -> Void
     ) {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -109,7 +110,7 @@ public class OpenAIClient: AIClient {
         self.baseClient = BaseHTTPAIClient()
     }
     
-    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+    public func sendPrompt(_ prompt: String, completion: @escaping @Sendable (Result<String, Error>) -> Void) {
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
             completion(.failure(NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
@@ -151,7 +152,7 @@ public class AnthropicClient: AIClient {
         self.baseClient = BaseHTTPAIClient()
     }
     
-    public func sendPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+    public func sendPrompt(_ prompt: String, completion: @escaping @Sendable (Result<String, Error>) -> Void) {
         guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
             completion(.failure(NSError(domain: "Anthropic", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
@@ -192,6 +193,25 @@ public struct Prior: Codable, Equatable {
     public func probability() -> Double {
         let s = alpha + beta
         return s > 0 ? alpha / s : 0.5
+    }
+
+    /// Upper bound on accumulated evidence (alpha + beta). Without a cap the
+    /// Beta parameters grow without bound across a long feedback history, which
+    /// (a) ossifies the prior so recent feedback barely moves it, and (b) lets
+    /// the serialized values drift ever larger on disk. See Known Issues.
+    public static let maxEvidence: Double = 200.0
+
+    /// Bound total evidence while preserving the mean. When alpha + beta
+    /// exceeds `maxEvidence`, scale both down by the same factor: the ratio
+    /// alpha/(alpha+beta) — and thus `probability()` and every mapped weight —
+    /// is unchanged, but the distribution stays responsive to new feedback.
+    /// This is a bounded exponential-forgetting behaviour, not a hard clamp.
+    public mutating func renormalizeIfSaturated(cap: Double = Prior.maxEvidence) {
+        let total = alpha + beta
+        guard total > cap, total > 0 else { return }
+        let scale = cap / total
+        alpha *= scale
+        beta *= scale
     }
 }
 
@@ -282,42 +302,48 @@ public class SynapseCore {
     
     /// Fault injection probability (0.0 by default). Can be set via env var CONTEXT_SYNAPSE_FAULT_PROB
     public var faultProbability: Double = 0.0
-
-    /// Sanitize a user identifier so it can only name a local state directory.
-    /// Path separators, traversal dots, whitespace, and other punctuation are dropped;
-    /// ASCII letters, digits, hyphen, and underscore are preserved.
-    public static func sanitizeUserIdentifier(_ user: String) -> String {
-        let allowedScalars = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_".unicodeScalars)
-        var sanitized = ""
-        for scalar in user.unicodeScalars where allowedScalars.contains(scalar) {
-            sanitized.unicodeScalars.append(scalar)
-        }
-        return sanitized
-    }
     
     /// Simple logging helper for debugging and error tracking
     private func logError(_ message: String, error: Error? = nil) {
         let errorMsg = error.map { " - \($0.localizedDescription)" } ?? ""
+        var standardError = StandardErrorStream()
         print("ContextSynapse Error: \(message)\(errorMsg)", to: &standardError)
     }
     
-    public init(folderName: String = "ContextSynapse", user: String = "default") {
-        // Validate and sanitize user input to prevent directory traversal.
-        let sanitizedUser = Self.sanitizeUserIdentifier(user)
-        
-        // Ensure the sanitized user is not empty after dropping unsupported characters.
-        guard !sanitizedUser.isEmpty else {
-            fatalError("Invalid user identifier: must contain alphanumeric characters")
-        }
-        
+    /// - Parameters:
+    ///   - folderName: top-level app-support folder name.
+    ///   - user: explicit per-user namespace (validated without rewriting).
+    ///   - baseOverride: dependency-injection seam for the storage root that
+    ///     normally resolves to `~/Library/Application Support`. Injecting a
+    ///     temp (or deliberately read-only) directory lets tests exercise real
+    ///     disk-I/O failure paths — e.g. verifying `saveWeights` returns
+    ///     `false` when the destination is unwritable (ADR-005). `nil` keeps
+    ///     the production location; no behaviour change for normal callers.
+    // The built-in default namespace remains source-compatible for GUI callers.
+    public convenience init(folderName: String = "ContextSynapse", baseOverride: URL? = nil) {
+        self.init(folderName: folderName, storageUser: "default", baseOverride: baseOverride)
+    }
+
+    /// Explicit identifiers are validated, never rewritten. Failures happen
+    /// before any directory creation, profile update, or default-state seeding.
+    public convenience init(folderName: String = "ContextSynapse", user: String, baseOverride: URL? = nil) throws {
+        let root = baseOverride ?? FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library").appendingPathComponent("Application Support")
+        try UserStorage.validate(user, usersDir: root.appendingPathComponent(folderName).appendingPathComponent("users"))
+        self.init(folderName: folderName, storageUser: user, baseOverride: baseOverride)
+    }
+
+    private init(folderName: String, storageUser: String, baseOverride: URL?) {
         let home = fm.homeDirectoryForCurrentUser
-        let baseDir = home.appendingPathComponent("Library").appendingPathComponent("Application Support").appendingPathComponent(folderName)
+        let storageRoot = baseOverride
+            ?? home.appendingPathComponent("Library").appendingPathComponent("Application Support")
+        let baseDir = storageRoot.appendingPathComponent(folderName)
         self.appSupport = baseDir
         self.usersDir = baseDir.appendingPathComponent("users")
-        self.currentUser = sanitizedUser
+        self.currentUser = storageUser
         
         // Create user-specific directories
-        let userDir = usersDir.appendingPathComponent(sanitizedUser)
+        let userDir = usersDir.appendingPathComponent(storageUser)
         self.configURL = userDir.appendingPathComponent("config.json")
         self.regionsURL = userDir.appendingPathComponent("regions.json")
         self.logDir = userDir.appendingPathComponent("logs")
@@ -390,12 +416,24 @@ public class SynapseCore {
         return defaults
     }
     
-    public func saveWeights(_ w: Weights) {
+    /// Persist weights atomically. Returns `false` on failure (already logged
+    /// to stderr) so a GUI caller can surface disk-I/O errors instead of them
+    /// vanishing silently. CLI callers may discard the result.
+    ///
+    /// - Important: **Single-writer contract.** Writes are atomic per call but
+    ///   there is no cross-process lock. Concurrent writers on the same `user`
+    ///   namespace race last-writer-wins and can lose an update. Callers must
+    ///   ensure only one process writes a given user at a time. See README.
+    ///   File locking is tracked for v1.0 (Known Issues).
+    @discardableResult
+    public func saveWeights(_ w: Weights) -> Bool {
         do {
             let data = try JSONEncoder().encode(w)
             try data.write(to: configURL, options: .atomic)
+            return true
         } catch {
             logError("Failed to save weights", error: error)
+            return false
         }
     }
     
@@ -410,12 +448,16 @@ public class SynapseCore {
         return regions
     }
     
-    public func saveRegions(_ regions: [Region]) {
+    /// Persist regions atomically. Returns `false` on failure (already logged).
+    @discardableResult
+    public func saveRegions(_ regions: [Region]) -> Bool {
         do {
             let data = try JSONEncoder().encode(regions)
             try data.write(to: regionsURL, options: .atomic)
+            return true
         } catch {
             logError("Failed to save regions", error: error)
+            return false
         }
     }
 
@@ -491,6 +533,9 @@ public class SynapseCore {
             } else {
                 prior.beta += 1.0
             }
+            // Bound accumulated evidence (mean-preserving) so priors stay
+            // responsive and on-disk values don't grow without limit.
+            prior.renormalizeIfSaturated()
             map[dictKey] = prior
         }
         bump(dictKey: chosenIntent, in: &w.priors.intents)
@@ -612,17 +657,44 @@ public class SynapseCore {
         }
     }
     
-    public func logRun(_ run: RunLog) {
+    /// Write a run log atomically. Returns `false` on failure (already logged).
+    @discardableResult
+    public func logRun(_ run: RunLog) -> Bool {
         let iso = ISO8601DateFormatter().string(from: Date())
         let file = logDir.appendingPathComponent("run-\(iso).json")
         do {
             let data = try JSONEncoder().encode(run)
             try data.write(to: file, options: .atomic)
+            return true
         } catch {
             logError("Failed to write run log", error: error)
+            return false
         }
     }
-    
+
+    /// Persist an AI provenance/benchmark record **on-device only**.
+    ///
+    /// The record carries a host fingerprint (chip, device model, memory, OS
+    /// build) and identity/provenance of the model that ran. It is written
+    /// atomically to the per-user logs directory under `~/Library/Application
+    /// Support`, which lives outside any git repo and is never synced to CI or a
+    /// remote. This is the single sanctioned sink: such records MUST NOT be
+    /// emitted to stdout (CI logs are a public leak channel) or committed.
+    /// Returns the on-device file URL, or `nil` on failure (already logged).
+    @discardableResult
+    public func recordAIBenchmark(_ report: AIBenchmarkReport) -> URL? {
+        let iso = ISO8601DateFormatter().string(from: Date())
+        let file = logDir.appendingPathComponent("ai-benchmark-\(iso).json")
+        do {
+            let data = try JSONEncoder().encode(report)
+            try data.write(to: file, options: .atomic)
+            return file
+        } catch {
+            logError("Failed to write AI benchmark record", error: error)
+            return nil
+        }
+    }
+
     // MARK: - Export/Import
     
     /// Export complete state (weights + regions + metadata) to a file
@@ -757,7 +829,7 @@ public class SynapseCore {
     }
     
     /// Switch to a different user (requires reinitializing SynapseCore)
-    public static func switchUser(to user: String, folderName: String = "ContextSynapse") -> SynapseCore {
-        return SynapseCore(folderName: folderName, user: user)
+    public static func switchUser(to user: String, folderName: String = "ContextSynapse") throws -> SynapseCore {
+        return try SynapseCore(folderName: folderName, user: user)
     }
 }

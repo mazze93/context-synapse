@@ -7,31 +7,23 @@ Not a consumer product — built by and for a neurodivergent developer exploring
 
 ## CURRENT STATE — START HERE
 
-**Version:** v0.3.0-decay (active sprint)
-**Branch model:** all work on feature branches, PRs against `main`
+**Version:** v0.3 bedrock layer is **merged to `main`** (PR #12: SynapticCircuit
+actor, CircuitTypes, FaultInjectionSuite, ADRs). Latest release tag is still
+`v0.1.0` — no v0.3 tag has been cut. Docs rewrite (PR #11) and CodeRabbit test
+generation (PR #13, added `Tests/SynapticCircuitTests.swift`) are also merged.
+**Branch model:** all work on feature branches, PRs against `main`.
 
-### Open PRs
+### Historical notes — resolved, do not reopen
 
-| PR | Branch | Status | Contents |
-|----|--------|--------|----------|
-| #11 | `claude/repo-docs-value-trust-dLqaj` | Draft | README + INSTALL.md rewrite: real prerequisites (macOS 13+, Swift 5.8+), real CLI flags, correct config JSON, maintenance posture, SECURITY.md link |
-| #12 | `claude/circuit-bedrock-v0.3` | Draft, CI failing → **fix pushed** | Bedrock layer: SynapticCircuit actor, CircuitTypes, FaultInjectionSuite, 3 ADRs |
-
-### PR #12 CI failure — root cause and fix
-
-`SynapseCore.swift:183` defines `public struct Prior` (the existing simple Beta wrapper).
-`CircuitTypes.swift` originally also defined `public struct Prior` (the new richer type).
-Both land in the `SynapseCore` module. Duplicate type = build failure.
-
-**Fix:** Renamed the circuit-layer type to `SynapticPrior` throughout `CircuitTypes.swift`.
-The old `Prior` in `SynapseCore.swift` is untouched — it is serialized to disk in `config.json`, do not rename or move it.
-
-Verify the fix is clean: `grep -rn "^public struct Prior" Sources/SynapseCore/` should return exactly one result (`SynapseCore.swift:183`).
-
-### assemblePrompt — RESOLVED, do not reopen
-
-ROADMAP flagged this as HIGH/BUG. Verified: `main.swift:299` correctly calls
-`core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)`.
+- **`Prior` vs `SynapticPrior`:** the circuit-layer type was renamed
+  `SynapticPrior` to avoid a module-level duplicate with `Prior`
+  (`SynapseCore.swift:183`, serialized to disk — never rename or move it).
+  The two types are intentionally separate; see Coding Conventions.
+  Sanity check: `grep -rn "^public struct Prior" Sources/SynapseCore/` returns
+  exactly one result.
+- **assemblePrompt:** ROADMAP once flagged this HIGH/BUG. Verified correct —
+  `main.swift:300` calls
+  `core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)`.
 
 ---
 
@@ -42,8 +34,8 @@ ROADMAP flagged this as HIGH/BUG. Verified: `main.swift:299` correctly calls
 | Language | Swift 5.8+, macOS 13+ only |
 | Build | `swift build -c release` |
 | Test | `swift build && swift test --parallel` — build first, some tests exec the CLI binary |
-| CI | GitHub Actions (`macos-15` runner) — no Swift toolchain in this Linux container |
-| Persistence | JSON files in `~/Library/Application Support/ContextSynapse/` |
+| CI | GitHub Actions (`macos-15` runner) — build authority for merges |
+| Persistence | JSON files in `~/Library/Application Support/ContextSynapse/` (per-user: config, regions, lighthouse, referee, `session.json` epochs) |
 | Dependencies | None (pure Swift stdlib + Foundation) |
 
 ---
@@ -62,8 +54,13 @@ Sources/
     SynapseWeightState.swift     # Per-synapse decay math, rot scoring, utility, lighthouse floor
     InteractionRecord.swift      # InteractionEventType, InteractionRecord, SynapseContent, DecayConstants
     SemanticDistanceStrategy.swift  # Protocol + StructuralHeuristicDistance (shipped), stubs for TFIDF/CoreML
+    FoundationModelsClient.swift # On-device AIClient (opt-in); #if canImport(FoundationModels) + @available(macOS 26)
+                                 #   provenance() + repeatable benchmark(); records persist on-device only
+    AIProvenance.swift           # AIProvenanceRecord / AIEnvironment / AIBenchmarkReport (identity+provenance+bench, JSON)
     SynapseReferee.swift         # FunctionalReferee, AbrasiveReferee, ContextIntervention, RefereeConfig
     RavenRenderer.swift          # Edgar: RavenState enum, RavenRenderer, EdgarIntervention, ANSI palette
+    SynapseManager.swift         # v0.4 session coordinator (actor): persistent synapse map,
+                                 #   circuit lifecycle + backward pass, RSA epoch snapshots, RSARenderer
     Circuit/                     # Bedrock layer (PR #12)
       CircuitTypes.swift         # CircuitConstants, SynapticPrior, SynapticNode, CircuitEdge, output types
       SynapticCircuit.swift      # actor: forwardPass, backwardPass, lighthouseFloor, injectFault
@@ -82,12 +79,14 @@ Sources/
     AppShortcutsBridge.swift     # Stub for future App Intents / iOS
 
 Tests/
-  BayesianConvergenceTests.swift  # All current tests
+  BayesianConvergenceTests.swift  # Bayesian engine + CLI-integration tests
+  SynapticCircuitTests.swift      # Circuit/bedrock tests (added in PR #13)
 
 docs/
   adr/
     ADR-002-bidirectional-prediction-error-propagation.md
     ADR-003-004-lighthouse-floor-and-decay-amplifier.md
+    ADR-005-gui-write-failure-verification.md  # baseOverride seam + PersistenceFailureTests; Links 2-3 deferred
     INTEGRATION.md               # Recipe for SynapseWeightState to consume ForwardPassResult
 ```
 
@@ -171,7 +170,7 @@ After PR #12 is integrated, `W_base` and `connFactor` will be sourced from `Syna
 - `FunctionalReferee` (default): saliency = velocity×0.5 + connectivity×0.3 + decayWeight×0.2. Silent — never surfaces to user unless an intervention is explicitly constructed.
 - `AbrasiveReferee` (opt-in via `referee.mode = "abrasive"` in config.json): drops saliency to 0.1 when `rotScore >= 0.3` AND `timeSinceLighthouse >= 15min` AND not in cooldown. 15-minute cooldown prevents spam. **Only activates on distraction, not cognitive collapse — ADR-002 is permanent.**
 - `ContextIntervention` — data passed to `EdgarIntervention.render()` for the 4-choice interrupt UI
-- `RefereeConfig { mode: RefereeMode }` — exists but is not yet persisted (P1 sprint item)
+- `RefereeConfig` — persisted in `referee.json` via `RefereeConfigStorage.swift`; set with CLI `--referee functional|abrasive`
 
 ### Layer 5: Semantic Distance (`SemanticDistanceStrategy.swift`)
 
@@ -228,9 +227,13 @@ let lambda = lambdaBase
 5.  Parse flags: --app, --focus, --intent, --tone, --domain, --time, --feedback, --fault-prob
 6.  Read query: positional arg || stdin
 7.  applyTriggers → weightedPick intent/tone/domain (or use forced flags)
-8.  loadLighthouse → SynapseWeightState.recomputeRotScore → RavenState.from(rotScore:lighthouseSet:)
+8.  core.loadLighthouseRecord → recomputeRotScore(driftReference: record.setAt)
+    → RavenState.from(rotScore:lighthouseSet:)
+    ⚠ the drift clock is the LIGHTHOUSE's, never the per-query synapse's —
+    an ephemeral synapse measured against its own clock has tDrift ≈ 0 and
+    can never rot (regression-pinned in Tests/DecayWeightTests.swift §4)
 9.  core.assemblePrompt(tone: chosenTone, intent: chosenIntent, domain: chosenDomain, query: userQuery)
-                                           ↑ verified correct, main.swift:299
+                                           ↑ verified correct, main.swift:300
 10. print(finalPrompt) + blank line
 11. RavenRenderer.render(state: edgarState, ...)
 12. If edgarState == .cauterize: EdgarIntervention.render(...)
@@ -238,51 +241,51 @@ let lambda = lambdaBase
 14. core.applyFeedbackUpdate(...) if --feedback good|bad|yes|no
 ```
 
-Lighthouse state persists across invocations via `lighthouse.json` in the user's AppSupport dir.
-**Design note:** `loadLighthouse`/`saveLighthouse`/`clearLighthouse` live in `main.swift`. They belong in `SynapseCore` for testability and GUI access. Move when `SynapseManager` is built (v0.4).
+Lighthouse state persists across invocations via `users/<user>/lighthouse.json`.
+Persistence lives in `SynapseCore` (`LighthouseStore.swift`) — accessible to CLI,
+GUI, and tests. The CLI also supports `--referee functional|abrasive` (persists
+`referee.json`) and emits a breadcrumb re-sync line before the prompt whenever
+a lighthouse is loaded.
 
 ---
 
 ## Sprint Backlog — Ordered by Priority
 
-### P0 — Get PR #12 green
+### P0 — DONE (PR #12 merged to main)
 
 - [x] Rename `Prior` → `SynapticPrior` in `CircuitTypes.swift` — eliminates module-level duplicate type
-- [ ] Push fix to `claude/circuit-bedrock-v0.3`, confirm CI passes
-- [ ] Consider adding strict concurrency flag to `Package.swift` for SynapseCore target:
-  ```swift
-  .target(name: "SynapseCore", path: "Sources/SynapseCore",
-          swiftSettings: [.enableExperimentalFeature("StrictConcurrency")])
-  ```
-  This surfaces latent actor isolation warnings without bumping swift-tools-version. Recommended before v0.4 actor wiring.
+- [x] Push fix to `claude/circuit-bedrock-v0.3`, confirm CI passes — merged
+- [x] Strict concurrency enabled on `SynapseCore` target (`Package.swift`).
+  Surfaced and fixed: `@Sendable` on AIClient closures, per-call
+  `StandardErrorStream` instead of a shared mutable global.
 
-### P1 — v0.3.0 remaining items (all new files, no modifications to existing)
+### P1 — v0.3.0 remaining items — ALL DONE (branch `claude/v0.3-ci-repair-and-p1`)
 
-- [ ] **`Tests/DecayWeightTests.swift`** — three tests:
-  1. Lighthouse floor invariant: `finalWeight(baseWeight:maxConnections:at:)` with `isLighthouse=true` never returns < `DecayConstants.lighthouseFloor` regardless of time elapsed
-  2. Cauterization threshold: `rotScore >= DecayConstants.rotCauterizeThreshold` must set `requiresCauterization = true`
-  3. Decay monotonicity: `decayWeight` decreases as `at` moves further from `lastInteractionAt`
-  Use UUID-suffixed folder names in any `SynapseCore` instances (match `BayesianConvergenceTests.swift` isolation pattern).
-
-- [ ] **`Sources/SynapseCore/RunLogDecay.swift`** — extend `SynapseCore.RunLog` via extension (no modification to `SynapseCore.swift`):
-  Add `DecaySnapshot: Codable` struct with fields: `decayWeight`, `rotScore`, `lighthouseSaliency`, `refereeMode`, `interventionFired: Bool`.
-  Wire the additional fields into `main.swift`'s `RunLog` context dict (currently `rotScore` and `edgarState` are stored as raw strings — upgrade them).
-
-- [ ] **`Sources/SynapseCore/BreadcrumbWriter.swift`** — on lighthouse load, emit a re-sync line before the prompt:
-  `⚓ Lighthouse: [text] — saliency [X]% — last touched [N]min ago`
-  Append to `logs/breadcrumb-<iso>.txt`. Called from CLI after `loadLighthouse` returns non-nil.
-
-- [ ] **`Sources/SynapseCore/RefereeConfigStorage.swift`** — `RefereeConfig` persistence round-trip.
-  `RefereeConfig` is defined in `SynapseReferee.swift` but never saved or loaded. Add load/save from `config.json` alongside `Weights` using an extension on `SynapseCore`.
+- [x] **`Tests/DecayWeightTests.swift`** — floor invariant, cauterization
+  threshold, decay monotonicity (+ lighthouse-never-rots, connectivity slows
+  decay). Uses a deterministic `MaxDistanceStrategy` for the rot case.
+- [x] **`Sources/SynapseCore/RunLogDecay.swift`** — `DecaySnapshot` round-trips
+  through `RunLog.context` keys; old logs yield `nil` snapshots. `main.swift`
+  now writes the typed snapshot instead of raw `rotScore` string.
+- [x] **BreadcrumbWriter** — lives in `LighthouseStore.swift`; emits the
+  re-sync line before the prompt and appends `logs/breadcrumb-<iso>.txt`.
+- [x] **`Sources/SynapseCore/RefereeConfigStorage.swift`** — persisted in
+  **`referee.json`**, not `config.json` (deliberate deviation: `saveWeights()`
+  rewrites `config.json` wholesale and would clobber sibling keys). New CLI
+  flag `--referee functional|abrasive` is the only way to opt into abrasive
+  (ADR-002).
 
 ### P2 — Docs
 
-- [ ] **Merge PR #11** — `main` currently has wrong prerequisites (macOS 12, Swift 5.7) and fabricated CLI flags (`--status`, `--config`, `--feedback positive`). PR #11 has the correct versions. Merge before any public-facing work or Show HN post.
+- [x] **Merge PR #11** — merged; README/INSTALL now carry the real prerequisites and CLI flags.
 
 ### P3 — Architecture prep for v0.4
 
-- [ ] **`Sources/SynapseCore/SynapseManager.swift`** — session coordinator skeleton. Will own: session-level `SynapseWeightState` map, lighthouse designation, `SynapticCircuit` lifecycle, backward-pass wiring after each interaction. Integration recipe is in `docs/adr/INTEGRATION.md`.
-- [ ] **Migrate lighthouse helpers from CLI to `SynapseCore`** — `loadLighthouse`/`saveLighthouse`/`clearLighthouse` in `main.swift` are not accessible to the GUI or tests. Move to `SynapseCore` before `SynapseManager` is built.
+- [x] **`Sources/SynapseCore/SynapseManager.swift`** — DONE (v0.4). Actor owning the session-level synapse map (persisted to `session.json`), lighthouse designation, `SynapticCircuit` lifecycle, and backward-pass wiring per interaction (INTEGRATION.md recipe). Every observation snapshots an **RSA epoch**: an NxN similarity matrix over [lighthouse + tracked synapses] plus anchor saliency — render with `contextsynapse --rsa` (heatmap + saliency sparkline). The old Region/NxN machinery's role, repointed at real session data; the GUI heatmap remains a consumer candidate.
+- [x] **Migrate lighthouse helpers from CLI to `SynapseCore`** — done:
+  `LighthouseStore.swift` (`LighthouseRecord`, save/load/clear on `SynapseCore`).
+  Canonical path `users/<user>/lighthouse.json`; legacy pre-0.4 CLI path
+  migrates transparently on first load.
 
 ---
 
@@ -290,19 +293,20 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 
 | Issue | Severity | Target | Notes |
 |-------|----------|--------|-------|
-| Silent write failures in GUI | Medium | v1.0 | No error surface in AppViewModel for disk I/O failures |
-| Unbounded prior growth | Low | v1.0 | alpha/beta accumulate indefinitely; add EMA decay |
-| Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption must be documented prominently |
-| `minutesInDrift` hardcoded to 15 in `main.swift:318` | Low | v0.4 | Should be computed from `lighthouse.setAt` timestamp in `LighthouseRecord` |
+| ~~Silent write failures in GUI~~ | Fixed | — | `saveWeights`/`saveRegions`/`logRun` return `Bool`; `AppViewModel.lastError` + `ContentView` banner surface disk-I/O failures. Real failure path pinned by `PersistenceFailureTests` via the `baseOverride` seam (ADR-005) |
+| ~~Unbounded prior growth~~ | Fixed | — | `Prior.renormalizeIfSaturated` caps `alpha+beta` at `Prior.maxEvidence` (200), mean-preserving; applied in `applyFeedbackUpdate` |
+| Multi-process write collision | Low | v1.0 | No file lock; single-writer assumption now documented prominently (README + `saveWeights` doc comment). Enforcement (lock) still v1.0 |
+| ~~`minutesInDrift` hardcoded to 15~~ | Fixed | — | Now computed from `LighthouseRecord.setAt` |
 | `RegionModel.swift` duplicates `canonicalVector` | Intentional | — | Extension separation design; creates drift risk — keep in sync manually |
 | `SynapseCore.swift` is a ~900-line monolith | Design debt | v1.0 | Split into focused files (BayesianEngine, SimilarityEngine, Persistence) once API is frozen |
-| `emitDriftEvent` in `SynapticCircuit` writes to stdout | Technical debt | v0.4 | Replace with injected RunLog writer at construction |
+| ~~`emitDriftEvent` in `SynapticCircuit` writes to stdout~~ | Fixed | — | Injectable `driftSink` at construction; default `stderrDriftSink` (off the machine-readable stdout channel) |
 
 ---
 
 ## Design Constraints (Non-Negotiable)
 
-- **Local-first**: no required network calls; AI clients (`OpenAIClient`, `AnthropicClient`) are opt-in library extensions only
+- **Local-first**: no required network calls; AI clients (`OpenAIClient`, `AnthropicClient`) are opt-in library extensions only. `FoundationModelsClient` is on-device (macOS 26+, `#if canImport(FoundationModels)` so CI/macos-15 still builds) — no network, no API key
+- **AI records stay on-device**: `AIProvenanceRecord`/`AIBenchmarkReport` capture identity, provenance, and benchmarks as plain JSON, but carry a host fingerprint — persist them only via `SynapseCore.recordAIBenchmark` (Application Support, outside the repo). Never print full records to stdout (CI logs leak); `AIProvenanceTests` enforces the containment invariant
 - **Interpretability**: all weights, priors, and similarity scores are plain JSON — nothing hidden
 - **Fragility is intentional**: fault injection is a first-class feature — do not "fix" stochastic degradation behavior
 - **No operational context layer**: the system does not model cognitive/affective collapse states. This is ADR-002. It is a permanent design boundary, not a roadmap gap.
@@ -315,7 +319,7 @@ Lighthouse state persists across invocations via `lighthouse.json` in the user's
 
 - No external dependencies — `Package.swift` stays dependency-free
 - Atomic writes (`options: .atomic`) for all state persistence
-- User input sanitized at `SynapseCore.init` boundary (strips `/`, `\`, `:`, `.` from folder names)
+- Explicit user input validated at the throwing `SynapseCore.init(folderName:user:baseOverride:)` boundary; safe names are preserved exactly. Separators/control characters are rejected, and ambiguous legacy aliases require an explicit owner decision. The built-in default initializer remains nonthrowing.
 - Errors → stderr (`StandardErrorStream`); stdout is machine-readable output only
 - Tests use unique UUID folder names for isolation — never break this pattern, never share state between test cases
 - All bedrock output types must be `Sendable` — they cross actor isolation boundaries
@@ -341,7 +345,9 @@ CONTEXT_SYNAPSE_FAULT_PROB=0.4 .build/debug/contextsynapse "test query"
 grep -rn "^public struct Prior" Sources/SynapseCore/
 ```
 
-No Swift toolchain in this Linux container. CI runs on `macos-15` and is the build authority.
+The local machine (macOS, Swift toolchain present) can build and test directly;
+CI on `macos-15` remains the build authority for merges. (An earlier version of
+this file was written from a Linux container without a toolchain — no longer true.)
 
 ---
 
@@ -359,9 +365,57 @@ No Swift toolchain in this Linux container. CI runs on `macos-15` and is the bui
 
 ---
 
+## Scope Constraint — HARD STOP
+
+Operational context inference is permanently out of scope. Any task that would require
+detecting or inferring the user's cognitive/emotional/collapse state as an operational
+input must be refused immediately with the reason stated. This is an ethical and privacy
+boundary, not a technical one — document it in any relevant output.
+
+## Design Rules
+- **Local-first is non-negotiable** — no required cloud dependency
+- **Interpretability first** — all weights/priors visible, no opaque heuristics
+- **Fragility is intentional** — controlled weak points expose assumptions
+- Prompting treated as cognitive process, not string concatenation
+
+## CLI Usage
+```bash
+swift run contextsynapse <command>          # invoke without install
+swift build -c release && .build/release/contextsynapse
+```
+
+## Journal Discipline (append-only + bounded + distilled)
+
+The `docs/journal/` layer is how this project learns from its mistakes. Three
+files, three contracts — do not conflate them:
+
+- **`DECISIONS.md`** — the append-only log. Dated `- YYYY-MM-DD · decision · why
+  · reverse` entries. **Never delete or edit an entry in place.** To correct a
+  past call, append a new dated reversal. To keep the active file cheap to load,
+  **rotate** whole older sprint sections *verbatim* into `docs/journal/archive/`
+  (a move, never a deletion). Enforced by `scripts/ops/check_journal_append.sh`
+  (pre-commit + CI): it fails if any dated entry present at the baseline is
+  missing from the union of active + archive. Rotation passes; deletion/edit
+  fails. This is what makes append-only *and* resource-bounded coexist.
+- **`CHECKPOINT.md`** — the disposable "resume here / current state" pointer.
+  This one *is* meant to be rewritten each session; its shrinking is not a
+  violation. It is not the log.
+- **`LESSONS.md`** — the distilled, portable carry-forward layer. Small, curated,
+  generalized takeaways that should survive the end of this project and seed the
+  next. When a lesson stops being project-specific, graduate it to the workspace
+  layer (`~/Projects` templates / global CLAUDE.md).
+
+**Branch/PR closes must carry proof, not assertion.** Before deleting a branch or
+closing a PR as "superseded," run `git diff --diff-filter=A --name-only main
+<branch>` and put the result (files genuinely unique to the branch, 0 = safe) in
+the close note and a dated `DECISIONS.md` entry. An unproven close forces the
+next person to re-derive trust from scratch.
+
 ## Repo
 
 - GitHub: `mazze93/context-synapse`
+- Local: `~/Projects/cognitive/context-synapse` (workspace v2, 2026-07-15;
+  `~/Code` → `~/Projects`. The old `~/Code/cognitive/ContextSynapse` casing is gone.)
 - Default branch: `main`
 - Releases: `v*` tags that are ancestors of `main`
 - Maintainer: @mazze93 (solo project, best-effort, breaking changes possible until v1.0)

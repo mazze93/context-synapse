@@ -9,6 +9,21 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("ContextSynapse Matrix Control").font(.title2).bold()
 
+                if let error = vm.lastError {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Dismiss") { vm.clearError() }
+                            .font(.caption)
+                    }
+                    .padding(8)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(6)
+                }
+
                 GroupBox("Query & Prompt") {
                     VStack(alignment: .leading) {
                         TextEditor(text: $vm.queryText)

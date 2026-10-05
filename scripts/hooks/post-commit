@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+# =============================================================================
+# post-commit — Context Synapse interaction event producer
+# =============================================================================
+# Emits one `git.commit` observation (successWeight 1.0) to the Context Synapse
+# event ledger after every commit.
+#
+# PRIVACY CONTRACT (docs/DATA-CLASSIFICATION.md)
+# All hashing happens HERE, before anything crosses a process boundary. The
+# contextsynapse binary never receives a repo path, remote URL, branch name,
+# commit message, or file name. It receives a salted hex token and a count.
+#
+# The salt is per-install, 0600, and never leaves the machine. Without it the
+# tokens are not correlatable across installs; with it they are stable across
+# commits, which is what makes longitudinal attribution possible.
+#
+# NEVER BLOCKS THE COMMIT. The commit has already happened when this runs;
+# any failure here exits 0 so a broken instrument can never cost you work.
+#
+# Usage:    installed as .git/hooks/post-commit.d/ (see scripts/install-git-hook.sh)
+# Requires: git, shasum (macOS) or sha256sum (Linux)
+# Platform: macOS ARM (M-series) + Linux compatible
+# =============================================================================
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# ── Constants ────────────────────────────────────────────────────────────────
+readonly CS_HOME="${CONTEXT_SYNAPSE_HOME:-$HOME/Library/Application Support/ContextSynapse}"
+readonly SALT_FILE="${CS_HOME}/instrument/salt"
+readonly TOKEN_LENGTH=16          # truncated hex; 64 bits is ample for ~10^2 repos
+readonly SOURCE_NAME="git-hook"
+
+# ── Color helpers (skip formatting when not a TTY) ───────────────────────────
+tty_reset=""  tty_yellow=""  tty_red=""
+if [ -t 1 ]; then
+  tty_reset="\033[0m"; tty_yellow="\033[33m"; tty_red="\033[31m"
+fi
+warn() { printf "${tty_yellow}[WARN]${tty_reset}  %s\n" "$*"; }
+err()  { printf "${tty_red}[ERROR]${tty_reset} %s\n" "$*" >&2; }
+
+# ── SHA-256 over stdin (macOS ships shasum, Linux sha256sum) ─────────────────
+# NOTE: this is a function, not a command string. IFS is set to $'\n\t' above,
+# which removes space from word splitting — so a string like "shasum -a 256"
+# would be executed as a single command name and fail. Dispatch in-function.
+has_hash_tool() {
+  command -v shasum &>/dev/null || command -v sha256sum &>/dev/null
+}
+
+sha256_hex() {
+  if command -v shasum &>/dev/null; then
+    shasum -a 256 | cut -d' ' -f1
+  else
+    sha256sum | cut -d' ' -f1
+  fi
+}
+
+# ── Load or create the per-install salt ──────────────────────────────────────
+# Without a salt, a repo token is a plain hash of a known string and is
+# trivially reversible by dictionary attack over likely repo names.
+load_or_create_salt() {
+  if [[ -f "$SALT_FILE" ]]; then
+    cat "$SALT_FILE"
+    return 0
+  fi
+  mkdir -p "$(dirname "$SALT_FILE")"
+  chmod 700 "$(dirname "$SALT_FILE")"
+  # 32 bytes of urandom, hex encoded, written 0600 before any content lands.
+  local new_salt
+  new_salt=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  (umask 077 && printf '%s' "$new_salt" > "$SALT_FILE")
+  printf '%s' "$new_salt"
+}
+
+# ── Derive an opaque, stable repo token ──────────────────────────────────────
+# Input preference: remote URL (stable across clones) → toplevel path fallback.
+# Neither ever leaves this function unhashed.
+derive_repo_token() {
+  local salt="$1"
+  local identity
+
+  identity=$(git config --get remote.origin.url 2>/dev/null || true)
+  if [[ -z "$identity" ]]; then
+    identity=$(git rev-parse --show-toplevel 2>/dev/null || echo "unknown-repo")
+  fi
+
+  printf '%s' "${salt}:${identity}" | sha256_hex | cut -c1-"${TOKEN_LENGTH}"
+}
+
+# ── Resolve the synapse attribution ──────────────────────────────────────────
+# Precedence: explicit per-repo override file → repo token.
+# The override lets you name a working thread ("stratum-ingress") instead of
+# an opaque token, which makes the ledger legible when you analyse it.
+# It is YOUR label — treat it as public (see DATA-CLASSIFICATION.md D1).
+resolve_synapse_id() {
+  local repo_token="$1"
+  local override_file
+  override_file="$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.contextsynapse"
+
+  if [[ -f "$override_file" ]]; then
+    local label
+    label=$(head -n 1 "$override_file" | tr -d '\n\r' | tr -cd 'A-Za-z0-9._:-')
+    if [[ -n "$label" ]]; then
+      printf '%s' "${label:0:128}"
+      return 0
+    fi
+  fi
+  printf 'repo-%s' "$repo_token"
+}
+
+# ── Locate the CLI without hardcoding a path ─────────────────────────────────
+resolve_cli() {
+  if [[ -n "${CONTEXT_SYNAPSE_BIN:-}" && -x "${CONTEXT_SYNAPSE_BIN}" ]]; then
+    echo "${CONTEXT_SYNAPSE_BIN}"
+  elif command -v contextsynapse &>/dev/null; then
+    command -v contextsynapse
+  else
+    return 1
+  fi
+}
+
+# ── Emit the observation ─────────────────────────────────────────────────────
+emit_event() {
+  local cli="$1" synapse_id="$2" repo_token="$3" changed_files="$4" commit_time="$5"
+
+  "$cli" \
+    --record git.commit \
+    --synapse "$synapse_id" \
+    --repo-token "$repo_token" \
+    --changed-files "$changed_files" \
+    --at "$commit_time" \
+    --source "$SOURCE_NAME"
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+# Every failure path exits 0. This hook is an observer; it has no standing to
+# fail a commit that already succeeded.
+main() {
+  local cli salt repo_token synapse_id changed_files commit_time
+
+  if ! has_hash_tool; then
+    warn "context-synapse: no SHA-256 tool found; observation skipped"
+    exit 0
+  fi
+
+  if ! cli=$(resolve_cli); then
+    # Silent by default: an uninstalled CLI is not an error worth interrupting for.
+    exit 0
+  fi
+
+  salt=$(load_or_create_salt)
+  repo_token=$(derive_repo_token "$salt")
+  synapse_id=$(resolve_synapse_id "$repo_token")
+
+  # Count only. File names are never read, hashed, or transmitted.
+  # --root is required or the initial commit (which has no parent) reports 0.
+  changed_files=$(git diff-tree --root --no-commit-id --name-only -r HEAD 2>/dev/null | wc -l | tr -d ' ')
+  # Commit time, not hook time — a rebased or delayed hook stays truthful.
+  commit_time=$(git log -1 --format=%cI 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  if ! emit_event "$cli" "$synapse_id" "$repo_token" "$changed_files" "$commit_time"; then
+    warn "context-synapse: observation not recorded (commit is unaffected)"
+  fi
+  exit 0
+}
+
+main "$@"

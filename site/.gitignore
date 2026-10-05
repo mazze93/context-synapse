@@ -1,0 +1,5 @@
+# Wrangler-generated local state — must never be committed.
+# .wrangler/ holds the build cache and an account-identity cache
+# (account id + name); .dev.vars holds local secrets. Both are per-machine.
+.wrangler/
+.dev.vars
