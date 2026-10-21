@@ -312,36 +312,38 @@ public class SynapseCore {
     
     /// - Parameters:
     ///   - folderName: top-level app-support folder name.
-    ///   - user: per-user namespace (sanitized for path traversal).
+    ///   - user: explicit per-user namespace (validated without rewriting).
     ///   - baseOverride: dependency-injection seam for the storage root that
     ///     normally resolves to `~/Library/Application Support`. Injecting a
     ///     temp (or deliberately read-only) directory lets tests exercise real
     ///     disk-I/O failure paths — e.g. verifying `saveWeights` returns
     ///     `false` when the destination is unwritable (ADR-005). `nil` keeps
     ///     the production location; no behaviour change for normal callers.
-    public init(folderName: String = "ContextSynapse", user: String = "default", baseOverride: URL? = nil) {
-        // Validate and sanitize user input to prevent directory traversal
-        // Remove path separators and dots to prevent traversal attacks
-        let sanitizedUser = user
-            .components(separatedBy: CharacterSet(charactersIn: "/\\:."))
-            .joined()
+    // The built-in default namespace remains source-compatible for GUI callers.
+    public convenience init(folderName: String = "ContextSynapse", baseOverride: URL? = nil) {
+        self.init(folderName: folderName, storageUser: "default", baseOverride: baseOverride)
+    }
 
-        // Ensure the sanitized user is not empty and is alphanumeric with limited special chars
-        guard !sanitizedUser.isEmpty,
-              sanitizedUser.rangeOfCharacter(from: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))) != nil else {
-            fatalError("Invalid user identifier: must contain alphanumeric characters")
-        }
+    /// Explicit identifiers are validated, never rewritten. Failures happen
+    /// before any directory creation, profile update, or default-state seeding.
+    public convenience init(folderName: String = "ContextSynapse", user: String, baseOverride: URL? = nil) throws {
+        let root = baseOverride ?? FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library").appendingPathComponent("Application Support")
+        try UserStorage.validate(user, usersDir: root.appendingPathComponent(folderName).appendingPathComponent("users"))
+        self.init(folderName: folderName, storageUser: user, baseOverride: baseOverride)
+    }
 
+    private init(folderName: String, storageUser: String, baseOverride: URL?) {
         let home = fm.homeDirectoryForCurrentUser
         let storageRoot = baseOverride
             ?? home.appendingPathComponent("Library").appendingPathComponent("Application Support")
         let baseDir = storageRoot.appendingPathComponent(folderName)
         self.appSupport = baseDir
         self.usersDir = baseDir.appendingPathComponent("users")
-        self.currentUser = sanitizedUser
+        self.currentUser = storageUser
         
         // Create user-specific directories
-        let userDir = usersDir.appendingPathComponent(sanitizedUser)
+        let userDir = usersDir.appendingPathComponent(storageUser)
         self.configURL = userDir.appendingPathComponent("config.json")
         self.regionsURL = userDir.appendingPathComponent("regions.json")
         self.logDir = userDir.appendingPathComponent("logs")
@@ -827,7 +829,7 @@ public class SynapseCore {
     }
     
     /// Switch to a different user (requires reinitializing SynapseCore)
-    public static func switchUser(to user: String, folderName: String = "ContextSynapse") -> SynapseCore {
-        return SynapseCore(folderName: folderName, user: user)
+    public static func switchUser(to user: String, folderName: String = "ContextSynapse") throws -> SynapseCore {
+        return try SynapseCore(folderName: folderName, user: user)
     }
 }
