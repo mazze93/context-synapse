@@ -7,7 +7,7 @@ and the API is not frozen — breaking changes are possible between minor versio
 This file supersedes the earlier `IMPROVEMENTS.md` and `REVIEW.md` snapshots,
 whose still-accurate content has been folded in below.
 
-## [Unreleased] — v0.3.0-decay
+## [v0.3.0] — 2026-09-21
 
 ### Added
 - **Decay layer** (`SynapseWeightState`): per-synapse decay math, rot scoring,
@@ -26,7 +26,15 @@ whose still-accurate content has been folded in below.
   bidirectional prediction-error propagation, earned lighthouse floor, and the
   `FaultInjectionSuite` calibration harness. (#12)
 
+- Session coordinator (`SynapseManager`), persistent session state, circuit
+  observation passes, and RSA epoch rendering (`--rsa`).
+- On-device opt-in `FoundationModelsClient` and local provenance/benchmark records.
+- Typed run-log decay snapshots, persisted lighthouse migration and breadcrumbs,
+  dedicated `referee.json`, and the append-only observation ledger/CLI.
+
 ### Fixed
+- Bounded prior evidence growth, GUI persistence error surface, and stderr drift
+  telemetry. See ADR-005 for the GUI verification perimeter.
 - CLI export prints a `Successfully exported state to: <file>` confirmation again,
   restoring symmetry with import and fixing the
   `testExportAndImportAcceptUserFlagBeforeCommandFlag` integration test. (#14)
@@ -57,3 +65,5 @@ whose still-accurate content has been folded in below.
   rather than failing silently.
 
 [Unreleased]: https://github.com/mazze93/context-synapse/commits/main
+
+[v0.3.0]: https://github.com/mazze93/context-synapse/releases/tag/v0.3.0
