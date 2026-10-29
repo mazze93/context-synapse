@@ -6,6 +6,9 @@ import SynapseCore
 // He renders on every query. His state IS the system's state.
 
 let args = CommandLine.arguments
+if args.contains("--session-diff") {
+    exit(SessionDiffCommand.run(args))
+}
 
 // MARK: - Global flag scan (pre-init)
 var selectedUser = "default"
