@@ -1,11 +1,13 @@
 # Checkpoint — 2026-10-29
 
-## Collection is running locally
+## Collection paused — 2026-10-29 correction
 
 A controlled empty `jj commit` (`0fbe0004`) left the study ledger unchanged at
 one event: Git post-commit hooks are bypassed. The CLI was absent from PATH too.
-The opt-in LaunchAgent `com.contextsynapse.jj-collector` now polls this checkout
-once per minute while logged in, with pinned copies of the collector and CLI.
+The LaunchAgent `com.contextsynapse.jj-collector` has been unloaded pending
+agent/human attribution and a viable sampling plan. Both collector copies now
+use `jj --ignore-working-copy log`; the dirty-working-copy probe confirmed no
+new jj operation. Prior polling was a possible additional working-copy writer.
 The first post-install jj event was verified in the existing ledger. The original
 Git observer is preserved but inactive (non-executable) to prevent duplicates.
 
@@ -16,7 +18,8 @@ five consented synapses are still needed to evaluate P1–P4.
 
 The study clock is not restarted. The original window ended October 27;
 DECISIONS records the pre-specified first seven-day extension through November 3
-at 23:53:20 America/New_York. FALSIFICATION.md remains unchanged by this work.
+at 23:53:20 America/New_York. PR #50 now fills the protocol's own Extension 1 slot; hypotheses and thresholds
+remain unchanged. The study is underpowered; further extensions are not automatic.
 
 ## Reviewable work
 
@@ -26,7 +29,8 @@ at 23:53:20 America/New_York. FALSIFICATION.md remains unchanged by this work.
   review and CodeQL state before merging. No merge has been claimed here.
   App heartbeat `merge-context-synapse-40-after-review-passes` checks every
   15 minutes and is authorized to merge only after those conditions pass.
-- #50: jj collector repair and study-window decision. Installed locally; PR open.
+- #50: collector repair plus correction `bedb18fb`: snapshot suppression in
+  source and pinned copy, collection paused, attribution confound recorded. PR open.
 - #51: release/roadmap reconciliation, #44 close-proof entry, ethics correction,
   and this checkpoint. v0.3.0 is released; v0.4 is partly shipped. No new tag cut.
 - #52: read-only `--session-diff` for two saved RunLogs. PR open.
