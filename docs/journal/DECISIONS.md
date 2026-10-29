@@ -248,3 +248,7 @@
   --uninstall .` removes the hook; the sign-off/date commits themselves are not
   reversed in place — a correction gets a new dated entry, not an edit to this
   one.
+
+## 2026-10-29 — Explicit Shadow Context CLI increment
+
+- 2026-10-29 · Implement explicit `--fork-shadow <goal>`, `--return-primary`, and `--promote-shadow` commands. Each fork gets a separate UUID-addressed lighthouse/session directory; a single atomic contexts.json index write selects the active context. Primary files are retained across return and promotion, prior primary IDs remain in the index, and failed pointer writes preserve the old selection. No nested forks or inferred anchors; weights/referee remain shared. CLI run logs carry context IDs and shadow queries emit a return breadcrumb. SwiftUI selection and a retained-shadow resume/list UI remain deferred. Reverse: stop writers and restore the previous index from backup/retained priorPrimaries IDs; preserve all context data.
