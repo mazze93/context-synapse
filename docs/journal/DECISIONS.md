@@ -248,3 +248,9 @@
   --uninstall .` removes the hook; the sign-off/date commits themselves are not
   reversed in place — a correction gets a new dated entry, not an edit to this
   one.
+
+## 2026-10-29 — Release reconciliation and architecture boundary
+
+- 2026-10-29 · Record the 2026-10-21 closure of PR #44 as superseded by main and duplicate of closed #27. The closure note records `git diff --diff-filter=A --name-only origin/main origin/rescue/ci-repair-p1-2026-09-16` returning zero files against main `51894f4`, with the branch missing driftReference and six test files. This establishes absence of branch-only files, not semantic equivalence; the accompanying commit-by-commit review is the justification for closure. No branch deleted. Reverse: reopen #44 for any newly demonstrated unique work, without merging the stale branch wholesale.
+
+- 2026-10-29 · Remove affect/biometric inference from the version backlog. Track A ADR-002 permanently excludes surveillance or inference of operator state; Track A ADR-001 requires explicit user confirmation for anchors and does not exempt opt-in webcam, cursor, or scroll inference from ADR-002. Explicit manual context choices remain permitted. Reverse: only a new explicit architecture decision can revisit the permanent boundary; an unchecked roadmap item is not authority.
