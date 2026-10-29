@@ -248,3 +248,9 @@
   --uninstall .` removes the hook; the sign-off/date commits themselves are not
   reversed in place — a correction gets a new dated entry, not an edit to this
   one.
+
+## 2026-10-29 — Collector repair and study-window handling
+
+- 2026-10-29 · Confirmed jj observer bypass with an empty controlled `jj commit` (`0fbe0004`): the default ledger remained at one event before and after; the Git observer is installed but jj does not invoke it. The CLI is also absent from the current shell PATH. Adopt a local 60-second LaunchAgent polling finalized `mine() ~ @` changes with pinned executable paths, salted change-ID deduplication, retry IDs, and an installation baseline excluding history. No remote collection or backfill. Scope is this checkout only. Reverse: boot out `com.contextsynapse.jj-collector` and restore the preserved Git observer if returning to Git; retain ledger and checkpoint evidence.
+
+- 2026-10-29 · Do not restart the confirmatory 30-day clock. The registered first event is 2026-09-27T23:53:20-04:00; the original 30-calendar-day window ended 2026-10-27T23:53:20-04:00 with insufficient collection. Apply the pre-specified first seven-day extension through 2026-11-03T23:53:20-05:00 (calendar days in America/New_York, across DST). Only collection counts were inspected; no P1–P4 outcomes were computed. The original event and zero days remain, and FALSIFICATION.md stays byte-for-byte unchanged. Instrument tests are not substantive observations. The interrupted window is insufficient for confirmatory conclusions; any future restarted study needs a separately versioned prospective protocol. Reverse: append a dated protocol amendment, never rewrite the original registration.
