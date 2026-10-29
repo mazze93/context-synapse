@@ -76,6 +76,34 @@ final class UserStorageTests: XCTestCase {
         }
     }
 
+    func testExistingDefaultCaseVariantRetainsItsOwnerAndState() throws {
+        for name in ["Default", "DEFAULT"] {
+            try withRoot { root in
+                let directory = root.appendingPathComponent("ContextSynapse/users/" + name)
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let profile = UserProfile(id: name, displayName: name, createdAt: "old", lastUsedAt: "old")
+                let profileURL = directory.appendingPathComponent("profile.json")
+                try JSONEncoder().encode(profile).write(to: profileURL)
+                let marker = Data("existing session".utf8)
+                try marker.write(to: directory.appendingPathComponent("session.json"))
+                let core = try SynapseCore(user: name, baseOverride: root)
+                XCTAssertEqual(core.currentUser, name)
+                XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("session.json")), marker)
+                let owner = try JSONDecoder().decode(UserProfile.self, from: Data(contentsOf: profileURL))
+                XCTAssertEqual(owner.id, name)
+            }
+        }
+    }
+
+    func testNewDefaultCaseVariantsAreRejectedBeforeWrites() throws {
+        try withRoot { root in
+            for name in ["Default", "DEFAULT"] {
+                XCTAssertThrowsError(try SynapseCore(user: name, baseOverride: root))
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ContextSynapse").path))
+        }
+    }
+
     func testInvalidIdentifiersThrowBeforeCreatingState() throws {
         try withRoot { root in
             for name in ["", "🔥", "***", "..", "../Ada", "Ada/B", "Ada\\B", "Ada:B", "Ada\nB"] {

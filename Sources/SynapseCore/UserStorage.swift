@@ -25,9 +25,7 @@ enum UserStorage {
         let forbidden = CharacterSet.controlCharacters.union(CharacterSet(charactersIn: "/\\:"))
         guard !user.isEmpty, user.utf8.count <= 200,
               user.rangeOfCharacter(from: forbidden) == nil,
-              user.rangeOfCharacter(from: .alphanumerics) != nil,
-              // The nonthrowing built-in default initializer owns this namespace.
-              user.lowercased() != "default" || user == "default" else {
+              user.rangeOfCharacter(from: .alphanumerics) != nil else {
             throw ValidationError.invalidIdentifier
         }
         let fm = FileManager.default
@@ -43,6 +41,11 @@ enum UserStorage {
                 guard profile.id == user else { throw ValidationError.conflictingOwner }
             }
         } else {
+            // Preserve exact existing owners (including Default/DEFAULT), but
+            // reserve new case variants of the built-in namespace.
+            guard user.lowercased() != "default" || user == "default" else {
+                throw ValidationError.invalidIdentifier
+            }
             let legacy = user.components(separatedBy: CharacterSet(charactersIn: "/\\:.")).joined()
             if legacy != user, !legacy.isEmpty,
                fm.fileExists(atPath: usersDir.appendingPathComponent(legacy).path) {
