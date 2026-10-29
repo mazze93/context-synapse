@@ -31,7 +31,7 @@ Architecture decisions live in [`docs/adr/`](docs/adr/) — start with the
 
 ---
 
-## v0.3.0 — Decay Layer 🔧 IN PROGRESS
+## v0.3.0 — Decay Layer ✅ RELEASED (2026-09-21)
 
 ### Shipped this sprint
 - [x] `InteractionRecord.swift` — timestamped event classification + `successWeight` mapping; also houses `SynapseContent` and the `DecayConstants` single source of truth
@@ -42,21 +42,26 @@ Architecture decisions live in [`docs/adr/`](docs/adr/) — start with the
 - [x] `Circuit/` + `FaultInjection/` — `SynapticCircuit` bedrock layer, Beta priors, fault-injection suite (#12)
 - [x] Architecture decisions recorded — see the [ADR index](docs/adr/README.md)
 
-### Remaining v0.3.0
-- [ ] Unit tests: decay convergence, lighthouse floor invariant (never below 0.4), cauterization threshold (triggers at RotScore ≥ 0.82)
-- [ ] Extend `RunLog` schema with: decay snapshot, rot score, lighthouse saliency, Referee mode, intervention flag
-- [ ] Breadcrumb file writer: on session resume, emit lighthouse re-sync line immediately
-- [ ] `RefereeConfig` round-trip: load/save from `default_config.json`
+### Completed v0.3.0 acceptance items
+- [x] Unit tests: decay convergence, lighthouse floor invariant (never below 0.4), cauterization threshold (triggers at RotScore ≥ 0.82)
+- [x] Extend `RunLog` schema with: decay snapshot, rot score, lighthouse saliency, Referee mode, intervention flag
+- [x] Breadcrumb file writer: on session resume, emit lighthouse re-sync line immediately
+- [x] `RefereeConfig` round-trip: load/save in dedicated `referee.json` (avoids config overwrite)
 
 ---
 
 ## v0.4.0 — Rot Layer + Lighthouse
 
-- [ ] `SynapseManager.swift` — coordinates session state, lighthouse designation, shadow context forking
-- [ ] Lighthouse designation at session start (explicit or inferred from first high-utility interaction)
-- [ ] Lighthouse re-sync UI message: `⚓ Lighthouse: [description] — saliency [X]% — last touched [N]min ago`
+Partially shipped in the v0.3.0 tag. No v0.4.0 release tag exists yet.
+Next engineering order: session-diff CLI (read-only), then explicit Shadow
+Context forks and promotion with anchor-specific histories. The manager does
+not yet apply `cauterizedDecayConstant`; keep that integration open.
+
+- [x] `SynapseManager.swift` — persisted session synapses, explicit lighthouse binding, circuit passes, and RSA epochs (included in v0.3.0; shadow forks remain below)
+- [x] Explicit lighthouse designation with `--lighthouse`; inferred anchors are excluded by ADR-001
+- [x] CLI lighthouse re-sync breadcrumb (SwiftUI integration remains separate): `⚓ Lighthouse: [description] — saliency [X]% — last touched [N]min ago`
 - [ ] Shadow Context fork mechanism (side-quest sandbox, breadcrumb trail)
-- [ ] Async affect vector integration (ADR-001): cursor scanpath, scroll cadence, webcam pupil proxies
+- Removed: cursor/scroll/webcam inference of operator state (Track A ADR-002 permanent boundary; opt-in does not override it)
 - [ ] Session diff CLI command: compare two run logs across decay/rot/lighthouse trajectories
 - [ ] `SynapseManager` integration: detect `requiresCauterization`, apply cauterized decay constant
 - [ ] Lighthouse promotion workflow: explicit user choice to make side-quest the new primary
@@ -69,16 +74,16 @@ Architecture decisions live in [`docs/adr/`](docs/adr/) — start with the
 - [ ] Context Intervention UI: surface `ContextIntervention.formattedMessage` with action buttons
 - [ ] AbrasiveReferee cooldown persistence across sessions
 - [ ] `shouldForkToShadowContext` wired to UI — dimmed Lighthouse indicator when side-quest active
-- [ ] Async affect conditioning in trigger weight pipeline (ADR-001 full implementation)
+- Explicit manual context choices only; operational/affective-state inference remains excluded (Track A ADR-001/002)
 - [ ] TF-IDF distance strategy (`TFIDFCosineDistance` — Option B)
 
 ---
 
 ## v1.0.0 — Production
 
-- [ ] Prior decay — exponential moving average for alpha/beta (fixes unbounded prior growth)
+- [x] Bounded prior growth — mean-preserving evidence cap (200); EMA is not implemented or required for this fix
 - [ ] File lock for write safety (single-writer assumption documented, needs enforcement)
-- [ ] UI error surface for IO failures (known issue: silent write failures)
+- [x] UI error surface for IO failures — save results, ViewModel error state, and banner (ADR-005)
 - [ ] Full test harness
 - [ ] README and contributor documentation (Show HN ready)
 - [ ] arXiv preprint: *Intentional Fragility: Bayesian Context Decay and Semantic Rot in Local-First LLM Orchestration*
@@ -89,9 +94,9 @@ Architecture decisions live in [`docs/adr/`](docs/adr/) — start with the
 
 | Issue | Severity | Status | Mitigation |
 |---|---|---|---|
-| Silent write failures | Medium | Open | Add UI error reporting, check AppSupport permissions on init |
+| Silent write failures | Medium | Resolved | Bool-returning saves, ViewModel error state, SwiftUI banner; ADR-005 documents verification limits |
 | Schema drift: key changes break region vectors | Medium | Open | Use `canonicalVector(for:)` to regenerate after schema changes |
-| Unbounded prior growth | Low | Open | Add EMA decay to alpha/beta — target v1.0 |
+| Unbounded prior growth | Low | Resolved | Mean-preserving cap on alpha + beta at 200 |
 | Concurrency: multi-process write collision | Low | Open | Add file lock — single-writer assumption documented |
 | `assemblePrompt` CLI wiring | High/Bug | ✅ Resolved | CLI calls `core.assemblePrompt(...)` correctly (`main.swift`) |
 | No per-synapse decay tracking | High | ✅ Addressed | `SynapseWeightState` (v0.3) |

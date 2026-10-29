@@ -277,3 +277,48 @@ log, and v0.4–v1.0 milestones.
 MIT — see [LICENSE](LICENSE).
 
 ---
+
+### Compare two saved runs
+
+```bash
+contextsynapse --session-diff before-run.json after-run.json
+```
+
+Reads two existing RunLog JSON files and reports before/after decay weight,
+rot score, lighthouse saliency, referee mode, and intervention state. Numeric
+deltas follow the supplied order. Older logs without complete decay telemetry
+show `unavailable`; the command never substitutes zero or infers intermediate
+trajectories. It exits before app-state initialization and writes no files.
+Malformed/missing files exit 1; invalid command arguments exit 2.
+
+### Explicit Shadow Contexts (CLI)
+
+```bash
+contextsynapse --lighthouse "Primary goal"
+contextsynapse --fork-shadow "Side quest goal"
+contextsynapse "work on the side quest"
+contextsynapse --rsa
+contextsynapse --return-primary
+# Alternatively, while a shadow is active:
+contextsynapse --promote-shadow
+```
+
+Each fork starts a new, explicitly chosen lighthouse and a separate session/RSA
+history. Returning restores the primary selection without modifying its session.
+Promotion changes the primary pointer while retaining previous primary files and
+their IDs in `contexts.json`. Run logs include `contextID` and `shadowContext`;
+shadow queries print a return breadcrumb. Weights and referee settings are shared.
+
+This first increment supports one active shadow, explicit return, and explicit
+promotion. Nested forks are rejected. Returned shadows are retained on disk;
+there is no resume/list UI yet. The SwiftUI app still uses the original primary
+store; context selection is currently a CLI feature. A corrupt index fails closed.
+A failed switch leaves the previous selection intact; an unselected new directory
+may remain for recovery. The existing single-writer assumption still applies.
+
+All files stay under the existing per-user directory: `contexts.json` selects
+`contexts/<UUID>/lighthouse.json` and `session.json`, or the original primary
+files. Back up the index and context files together. To reverse a promotion,
+stop writers and restore the prior index from backup (or use its retained
+`priorPrimaries` ID); do not delete context directories as a rollback mechanism.
+No webcam, cursor, scroll, affect, or operator-state inference is involved.

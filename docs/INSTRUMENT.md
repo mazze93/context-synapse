@@ -122,3 +122,52 @@ direct call.
 
 Step 3 before step 4 is the whole point. A pre-registration committed after the
 first observation is not a pre-registration.
+
+## jj collection (2026-10-29)
+
+Git post-commit hooks do not run for `jj commit`. For a colocated jj checkout,
+install the local scheduled collector instead:
+
+```bash
+swift build -c release
+bash scripts/install-jj-collector.sh "$PWD"
+```
+
+The installer pins a copy of the CLI and collector under Application Support;
+it does not depend on a terminal's PATH or a mutable build output. A per-user
+LaunchAgent checks this checkout every 60 seconds while logged in. No network
+is involved. Only `mine() ~ @` changes are eligible: changes authored under the
+configured jj identity, excluding the open working copy. Use ordinary `jj commit`
+or `jj new` to finalize a change. Changing jj identity or importing new changes
+by that identity changes eligibility; audit those actions during the study.
+
+Installation baselines existing changes without recording them. No missing
+historical events are reconstructed. Deduplication uses salted change-ID hashes,
+so rewriting a commit does not create another event. Stable opaque event IDs
+allow safe retries after a ledger write succeeds but checkpointing is interrupted.
+The collector is serialized; `--event-id` deduplication assumes one producer per
+ID. A forced kill can leave `state/lock`; inspect for a running collector before
+removing that empty directory and retrying.
+
+Health: inspect `instrument/jj-collector/state/last-success`, `stderr.log`, and
+`contextsynapse --events-summary`. A successful empty poll updates the health
+stamp. A missing CLI or failed ledger write exits nonzero and retains pending
+changes for the next poll. Events use commit time and `source: jj-poll`.
+
+Scope is explicitly this checkout only. Other repositories require separate
+consent and configuration; this installer refuses a second installation. It
+never discovers repositories automatically. Keep the existing Git observer
+inactive in this checkout to avoid double collection. Stop collection with:
+
+```bash
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.contextsynapse.jj-collector.plist"
+```
+
+The installed scripts and binary are copies: reviewed updates must be installed
+explicitly. Stopping the job retains all ledger and checkpoint data.
+
+Commit events alone have constant utility 1.0 and one repository supplies one
+synapse. Collection health is not evidence that P1–P4 are identifiable: varied
+outcomes, at least five consented synapses, an offline replay/analysis script,
+and the declared data thresholds remain prerequisites. Do not compute outcome
+statistics during collection to diagnose these structural limitations.
