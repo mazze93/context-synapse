@@ -136,7 +136,7 @@ bash scripts/install-jj-collector.sh "$PWD"
 The installer pins a copy of the CLI and collector under Application Support;
 it does not depend on a terminal's PATH or a mutable build output. A per-user
 LaunchAgent checks this checkout every 60 seconds while logged in. No network
-is involved. Only `mine() ~ @` changes are eligible: changes authored under the
+is involved. Only `mine() ~ @ ~ (empty() & description(exact:""))` changes are eligible: changes authored under the
 configured jj identity, excluding the open working copy. Use ordinary `jj commit`
 or `jj new` to finalize a change. Changing jj identity or importing new changes
 by that identity changes eligibility; audit those actions during the study.
@@ -171,3 +171,18 @@ synapse. Collection health is not evidence that P1–P4 are identifiable: varied
 outcomes, at least five consented synapses, an offline replay/analysis script,
 and the declared data thresholds remain prerequisites. Do not compute outcome
 statistics during collection to diagnose these structural limitations.
+
+### Polling boundaries and pause
+
+The query uses both `--ignore-working-copy` and `--at-op @`: the former avoids
+working-copy snapshots; the latter refuses ambiguous operation heads instead of
+reconciling them. A failed query exits before events/checkpoints advance and
+releases the normal invocation lock. The regression harness in
+`scripts/ops/test_jj_collector_boundaries.py` creates and asserts two operation
+heads before testing this behavior; it also checks that empty undescribed
+placeholders remain eligible after receiving content.
+
+Collection is currently paused for attribution and sampling validity. Described
+empty changes and merges still need a prospective study eligibility decision;
+the technical filter is not a definition of human effort. A forced kill can leave
+the lock behind; automatic stale-lock recovery remains unimplemented.
