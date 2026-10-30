@@ -248,3 +248,7 @@
   --uninstall .` removes the hook; the sign-off/date commits themselves are not
   reversed in place — a correction gets a new dated entry, not an edit to this
   one.
+
+## 2026-10-29 — Resume v0.4 engineering
+
+- 2026-10-29 · Implement the read-only `--session-diff <before-run.json> <after-run.json>` command first. It compares existing RunLog decay snapshots before app-state initialization, reports unavailable legacy telemetry without inventing zeros, and refuses non-finite telemetry. Two endpoints are not a reconstructed trajectory; no study-ledger outcome analysis is involved. Shadow Context remains the next independent increment, requiring explicit fork/return/promotion choices, anchor-specific persistence, and recoverable state switching. Reverse: remove the additive command; no persisted schema was changed.
