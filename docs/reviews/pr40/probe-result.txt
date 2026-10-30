@@ -1,0 +1,18 @@
+Building for debugging...
+[Planning deferred tasks]
+[6 / 17] BayesianConvergenceTests-product
+[22 / 33] BayesianConvergenceTests-product
+[26 / 32] BayesianConvergenceTests-product
+[28 / 32] BayesianConvergenceTests-product
+Build complete! (1.16 sec)
+Test Suite 'Selected tests' started at 2026-10-29 20:09:37.914.
+Test Suite 'BayesianConvergenceTests.xctest' started at 2026-10-29 20:09:37.915.
+Test Suite 'PR40ReviewProbeTests' started at 2026-10-29 20:09:37.915.
+Test Case '-[BayesianConvergenceTests.PR40ReviewProbeTests testDefaultConvenienceBypassesOwnershipValidation]' started.
+Test Case '-[BayesianConvergenceTests.PR40ReviewProbeTests testDefaultConvenienceBypassesOwnershipValidation]' passed (0.005 seconds).
+Test Suite 'PR40ReviewProbeTests' passed at 2026-10-29 20:09:37.921.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'BayesianConvergenceTests.xctest' passed at 2026-10-29 20:09:37.921.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 20:09:37.921.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.005 (0.006) seconds

@@ -255,3 +255,7 @@
 ## 2026-10-29 — PR #40 final review repair
 
 - 2026-10-29 · Preserve existing exact-owned `Default`/`DEFAULT` namespaces before rejecting creation of new variants of the built-in default. Greptile identified that the early validation guard made legacy saved state inaccessible. Move the reservation to the new-directory branch and test existing ownership/session preservation plus rejection before writes. Reverse: revert this focused validation adjustment only if a replacement preserves existing owners.
+
+## 2026-10-29 — PR #40 self-review blocks merge
+
+- 2026-10-29 · At the user's request, replace unavailable Greptile review with direct review of head 1153ae0a. An isolated case-insensitive-volume probe proves the nonthrowing default convenience initializer bypasses the explicit initializer's ownership guard and can read/overwrite an existing Default owner's weights. Request changes; do not merge this head. Preserve the local report/probe in docs/reviews/pr40. Delete the merge heartbeat because this review is blocked. Reverse: approve only after all construction entry points enforce a documented ownership policy and the bypass regression is covered.
