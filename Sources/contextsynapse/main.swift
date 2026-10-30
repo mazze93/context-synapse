@@ -6,6 +6,12 @@ import SynapseCore
 // He renders on every query. His state IS the system's state.
 
 let args = CommandLine.arguments
+let instrumentFlags = ["--record", "--export-events", "--events-summary"]
+let stateFlags = ["--fork-shadow", "--return-primary", "--promote-shadow", "--lighthouse", "--resync", "--rsa", "--referee", "--export", "--import"]
+if instrumentFlags.contains(where: args.contains) && stateFlags.contains(where: args.contains) {
+    fputs("Instrument and context/state commands cannot be combined\n", stderr)
+    exit(2)
+}
 
 // MARK: - Global flag scan (pre-init)
 var selectedUser = "default"
@@ -20,6 +26,35 @@ while scanIndex < args.count {
 
 let core = SynapseCore(user: selectedUser)
 
+// MARK: - Instrument verbs (record / export-events / events-summary)
+// Terminal commands that append to or read the observation ledger, then exit.
+// They never touch weights, priors, or circuit state — the ledger is an
+// immutable log that circuit state is folded FROM. See docs/adr/ADR-006.
+// ledgerDirectory resolves to the per-user dir (logDir is <userDir>/logs).
+
+let ledgerDirectory = core.logDir.deletingLastPathComponent()
+
+if args.contains("--record") {
+    exit(RecordCommand.handleRecord(args: args, ledgerDirectory: ledgerDirectory).rawValue)
+}
+
+if args.contains("--export-events") {
+    exit(RecordCommand.handleExportEvents(args: args, ledgerDirectory: ledgerDirectory).rawValue)
+}
+
+if args.contains("--events-summary") {
+    exit(RecordCommand.handleEventsSummary(ledgerDirectory: ledgerDirectory).rawValue)
+}
+
+// Explicit CLI context selection; corrupt indexes fail before any anchor use.
+let contextStore: ShadowContextStore
+do {
+    contextStore = try ShadowContextCommand.prepare(args: args, core: core)
+} catch {
+    fputs("Context selection failed: \(error.localizedDescription)\n", stderr)
+    exit(2)
+}
+
 // MARK: - --lighthouse and --resync
 // Persistence lives in SynapseCore (LighthouseStore.swift) so the GUI and
 // tests reach the same store. Legacy <user>/lighthouse.json files written by
@@ -28,7 +63,8 @@ let core = SynapseCore(user: selectedUser)
 if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < args.count {
     let label = args[lighthouseIdx + 1]
     let content = SynapseContent(id: UUID().uuidString, text: label)
-    core.saveLighthouse(content)
+    do { try contextStore.saveLighthouse(content) }
+    catch { fputs("Cannot save lighthouse: \(error.localizedDescription)\n", stderr); exit(1) }
 
     RavenRenderer.render(state: .perched, frameIndex: 0, lighthouseLabel: label, rotScore: 0.0)
     print("")
@@ -38,7 +74,8 @@ if let lighthouseIdx = args.firstIndex(of: "--lighthouse"), lighthouseIdx + 1 < 
 }
 
 if args.contains("--resync") {
-    core.clearLighthouse()
+    do { try contextStore.clearLighthouse() }
+    catch { fputs("Cannot clear lighthouse: \(error.localizedDescription)\n", stderr); exit(1) }
     RavenRenderer.render(state: .resync, frameIndex: 0, lighthouseLabel: nil, rotScore: 0.0)
     print("")
     print("\u{001B}[38;5;51m⚓ Lighthouse cleared. Set a new one with --lighthouse \"description\"\u{001B}[0m")
@@ -66,18 +103,26 @@ if let refereeIdx = args.firstIndex(of: "--referee"), refereeIdx + 1 < args.coun
     exit(0)
 }
 
+// Resolve once with a recoverable error; top-level throwing loads can abort.
+let selectedLighthouseRecord: LighthouseRecord?
+do { selectedLighthouseRecord = try contextStore.loadLighthouse() }
+catch {
+    fputs("Cannot load selected lighthouse: \(error.localizedDescription)\n", stderr)
+    exit(1)
+}
+
 // MARK: - --rsa
 // Render the session's RSA state: latest similarity heatmap over
 // [lighthouse + tracked synapses] and the anchor-saliency sparkline across
 // epochs. This is the evidence layer — drift claims point here.
 
 if args.contains("--rsa") {
-    let manager = core.makeSynapseManager()
+    let manager = SynapseManager(sessionURL: contextStore.sessionURL, lighthouse: selectedLighthouseRecord)
     let epochs = await manager.epochs
     if let latest = epochs.last {
         print(RSARenderer.heatmap(latest))
         print(RSARenderer.saliencyStrip(epochs))
-    } else if core.loadLighthouseRecord() == nil {
+    } else if selectedLighthouseRecord == nil {
         print("No lighthouse set — RSA epochs are only meaningful relative to an anchor.")
         print("Set one: contextsynapse --lighthouse \"<your primary goal>\"")
     } else {
@@ -144,26 +189,6 @@ if let importIndex {
     }
     fputs("Error: Failed to import state\n", stderr)
     exit(1)
-}
-
-// MARK: - Instrument verbs (record / export-events / events-summary)
-// Terminal commands that append to or read the observation ledger, then exit.
-// They never touch weights, priors, or circuit state — the ledger is an
-// immutable log that circuit state is folded FROM. See docs/adr/ADR-006.
-// ledgerDirectory resolves to the per-user dir (logDir is <userDir>/logs).
-
-let ledgerDirectory = core.logDir.deletingLastPathComponent()
-
-if args.contains("--record") {
-    exit(RecordCommand.handleRecord(args: args, ledgerDirectory: ledgerDirectory).rawValue)
-}
-
-if args.contains("--export-events") {
-    exit(RecordCommand.handleExportEvents(args: args, ledgerDirectory: ledgerDirectory).rawValue)
-}
-
-if args.contains("--events-summary") {
-    exit(RecordCommand.handleEventsSummary(ledgerDirectory: ledgerDirectory).rawValue)
 }
 
 // MARK: - Regular query processing
@@ -298,7 +323,7 @@ let currentContent = SynapseContent(
     functionNames: []
 )
 
-let activeLighthouseRecord = core.loadLighthouseRecord()
+let activeLighthouseRecord = selectedLighthouseRecord
 let activeLighthouse = activeLighthouseRecord?.content
 let refereeMode = core.loadRefereeConfig().mode
 var rotScore: Double = 0.0
@@ -307,7 +332,7 @@ var edgarState: RavenState = .dormant
 
 // Reuse the record loaded above — loadLighthouseRecord() re-reads disk and
 // can re-run the legacy-path migration side effect if called twice.
-let manager = SynapseManager(sessionURL: core.sessionURL, lighthouse: activeLighthouseRecord)
+let manager = SynapseManager(sessionURL: contextStore.sessionURL, lighthouse: activeLighthouseRecord)
 if let epoch = await manager.observe(currentContent, event: .fileSave) {
     rotScore = max(0.0, min(1.0, 1.0 - epoch.lighthouseSaliency))
     decayWeightNow = epoch.observedDecayWeight
@@ -315,6 +340,9 @@ if let epoch = await manager.observe(currentContent, event: .fileSave) {
 }
 
 // MARK: - Breadcrumb
+if contextStore.isShadow {
+    print("Shadow context: \(contextStore.activeID) — return with --return-primary")
+}
 // Re-sync line before the prompt, also appended to logs/breadcrumb-<iso>.txt.
 if let record = activeLighthouseRecord {
     BreadcrumbWriter.emit(for: record, rotScore: rotScore, core: core)
@@ -358,6 +386,8 @@ let decaySnapshot = SynapseCore.RunLog.DecaySnapshot(
 )
 var runContext: [String: String] = [
     "user":       selectedUser,
+    "contextID": contextStore.activeID,
+    "shadowContext": contextStore.isShadow ? "true" : "false",
     "app":        flagApp ?? "unknown",
     "focus":      flagFocus ?? "unknown",
     "timeBucket": activeTriggers.joined(separator: ","),

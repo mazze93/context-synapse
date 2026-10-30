@@ -215,6 +215,18 @@ let lambda = lambdaBase
 - `EdgarIntervention.render(intervention:)` — 4-choice context rot UI: return / promote / continue / dismiss
 - `ANSI` color constants: purple=dormant, cyan=perched, yellow=stirring, orange=alarmed, red/white=cauterize
 
+### CLI context selection and command precedence (Shadow Context increment)
+
+The CLI initializes the selected user, then handles `--record`, `--export-events`,
+and `--events-summary` before loading the context index. This precedence changed
+explicitly so a corrupt context index cannot disable collection. Mixed instrument and context/state commands are rejected before initialization;
+there is no silent precedence between these command families.
+Context management then handles explicit fork/return/promotion. Lighthouse writes
+and reads use the selected context; loads fail with an error instead of an
+uncaught top-level throw. RSA and query observations use its separate session URL.
+Run logs carry context IDs. The SwiftUI app still uses the original primary store.
+The historical flow below predates this selection layer.
+
 ### CLI (`main.swift`) — Complete Flow
 
 ```
