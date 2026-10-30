@@ -23,6 +23,9 @@ final class ShadowContextTests: XCTestCase {
             await manager.observe(SynapseContent(id: "shadow-work", text: "shadow work"), event: .buildFailure)
             let shadowURL = store.sessionURL
             let shadowBytes = try Data(contentsOf: shadowURL)
+            let savedShadow = try JSONDecoder().decode(SessionState.self, from: shadowBytes)
+            XCTAssertEqual(savedShadow.epochs.count, 1)
+            XCTAssertTrue(savedShadow.synapses.contains { $0.id == "shadow-work" })
             XCTAssertEqual(try Data(contentsOf: core.sessionURL), original)
             XCTAssertThrowsError(try store.fork(goal: "nested"))
             let resumed = try ShadowContextStore(core: core)
@@ -102,6 +105,8 @@ final class ShadowContextTests: XCTestCase {
             task.standardOutput = FileHandle.nullDevice; task.standardError = FileHandle.nullDevice
             try task.run(); task.waitUntilExit(); return task.terminationStatus
         }
+        XCTAssertEqual(try invoke(["--record", "git.commit", "--fork-shadow", "mixed"]), 2)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
         XCTAssertEqual(try invoke(["--lighthouse", "primary goal"]), 0)
         XCTAssertEqual(try invoke(["primary work"]), 0)
         let session = root.appendingPathComponent("session.json")

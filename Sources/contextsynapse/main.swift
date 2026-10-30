@@ -6,6 +6,12 @@ import SynapseCore
 // He renders on every query. His state IS the system's state.
 
 let args = CommandLine.arguments
+let instrumentFlags = ["--record", "--export-events", "--events-summary"]
+let stateFlags = ["--fork-shadow", "--return-primary", "--promote-shadow", "--lighthouse", "--resync", "--rsa", "--referee", "--export", "--import"]
+if instrumentFlags.contains(where: args.contains) && stateFlags.contains(where: args.contains) {
+    fputs("Instrument and context/state commands cannot be combined\n", stderr)
+    exit(2)
+}
 
 // MARK: - Global flag scan (pre-init)
 var selectedUser = "default"
@@ -97,18 +103,26 @@ if let refereeIdx = args.firstIndex(of: "--referee"), refereeIdx + 1 < args.coun
     exit(0)
 }
 
+// Resolve once with a recoverable error; top-level throwing loads can abort.
+let selectedLighthouseRecord: LighthouseRecord?
+do { selectedLighthouseRecord = try contextStore.loadLighthouse() }
+catch {
+    fputs("Cannot load selected lighthouse: \(error.localizedDescription)\n", stderr)
+    exit(1)
+}
+
 // MARK: - --rsa
 // Render the session's RSA state: latest similarity heatmap over
 // [lighthouse + tracked synapses] and the anchor-saliency sparkline across
 // epochs. This is the evidence layer — drift claims point here.
 
 if args.contains("--rsa") {
-    let manager = SynapseManager(sessionURL: contextStore.sessionURL, lighthouse: try contextStore.loadLighthouse())
+    let manager = SynapseManager(sessionURL: contextStore.sessionURL, lighthouse: selectedLighthouseRecord)
     let epochs = await manager.epochs
     if let latest = epochs.last {
         print(RSARenderer.heatmap(latest))
         print(RSARenderer.saliencyStrip(epochs))
-    } else if try contextStore.loadLighthouse() == nil {
+    } else if selectedLighthouseRecord == nil {
         print("No lighthouse set — RSA epochs are only meaningful relative to an anchor.")
         print("Set one: contextsynapse --lighthouse \"<your primary goal>\"")
     } else {
@@ -309,7 +323,7 @@ let currentContent = SynapseContent(
     functionNames: []
 )
 
-let activeLighthouseRecord = try contextStore.loadLighthouse()
+let activeLighthouseRecord = selectedLighthouseRecord
 let activeLighthouse = activeLighthouseRecord?.content
 let refereeMode = core.loadRefereeConfig().mode
 var rotScore: Double = 0.0
