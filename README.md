@@ -277,3 +277,16 @@ log, and v0.4–v1.0 milestones.
 MIT — see [LICENSE](LICENSE).
 
 ---
+
+### Compare two saved runs
+
+```bash
+contextsynapse --session-diff before-run.json after-run.json
+```
+
+Reads two existing RunLog JSON files and reports before/after decay weight,
+rot score, lighthouse saliency, referee mode, and intervention state. Numeric
+deltas follow the supplied order. Older logs without complete decay telemetry
+show `unavailable`; the command never substitutes zero or infers intermediate
+trajectories. It exits before app-state initialization and writes no files.
+Malformed/missing files exit 1; invalid command arguments exit 2.
