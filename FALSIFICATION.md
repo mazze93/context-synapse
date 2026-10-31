@@ -46,7 +46,7 @@ record each extension below. Do not extend on the basis of having peeked at
 results.
 
 Extensions log:
-- [ ] Extension 1 — reason: ______________ new end date: ______
+- [x] Extension 1 — recorded 2026-10-29; reason: collection failure and unmet minimum data requirements; new end date: 2026-11-03T23:53:20-05:00. Collection subsequently paused on 2026-10-29 for unresolved agent/human attribution; this extension does not establish study eligibility. See docs/journal/DECISIONS.md.
 
 ---
 

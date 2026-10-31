@@ -106,7 +106,13 @@ public enum RecordCommand {
         let source = value(for: "--source", in: args) ?? "cli"
         let timestamp = resolveTimestamp(value(for: "--at", in: args))
 
+        let suppliedID = value(for: "--event-id", in: args)
+        if let suppliedID, UUID(uuidString: suppliedID) == nil {
+            FileHandle.standardError.write(Data("Error: --event-id must be a UUID\n".utf8))
+            return .usage
+        }
         let event = LedgerEvent(
+            id: suppliedID ?? UUID().uuidString,
             timestamp: timestamp,
             event: eventType.rawValue,
             successWeight: eventType.successWeight,
@@ -118,6 +124,12 @@ public enum RecordCommand {
 
         do {
             let ledger = try EventLedger(directory: ledgerDirectory)
+            // A single scheduled collector retries with a salted stable ID.
+            // Other producers retain their randomly generated event IDs.
+            if let suppliedID {
+                let (existing, _) = ledger.readAll()
+                if existing.contains(where: { $0.id == suppliedID }) { return .ok }
+            }
             try ledger.append(event)
         } catch {
             FileHandle.standardError.write(Data("Error: \(error)\n".utf8))
@@ -205,6 +217,7 @@ public enum RecordCommand {
           --changed-files <n>   count of changed files (never names)
           --at <iso8601>        event time (default: now)
           --source <name>       producer name (default: "cli")
+          --event-id <uuid>    stable retry ID (single producer per ID)
           --verbose             print confirmation
 
         Event types:

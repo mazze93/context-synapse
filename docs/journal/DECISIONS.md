@@ -249,6 +249,28 @@
   reversed in place — a correction gets a new dated entry, not an edit to this
   one.
 
+## 2026-10-29 — Collector repair and study-window handling
+
+- 2026-10-29 · Confirmed jj observer bypass with an empty controlled `jj commit` (`0fbe0004`): the default ledger remained at one event before and after; the Git observer is installed but jj does not invoke it. The CLI is also absent from the current shell PATH. Adopt a local 60-second LaunchAgent polling finalized `mine() ~ @` changes with pinned executable paths, salted change-ID deduplication, retry IDs, and an installation baseline excluding history. No remote collection or backfill. Scope is this checkout only. Reverse: boot out `com.contextsynapse.jj-collector` and restore the preserved Git observer if returning to Git; retain ledger and checkpoint evidence.
+
+- 2026-10-29 · Do not restart the confirmatory 30-day clock. The registered first event is 2026-09-27T23:53:20-04:00; the original 30-calendar-day window ended 2026-10-27T23:53:20-04:00 with insufficient collection. Apply the pre-specified first seven-day extension through 2026-11-03T23:53:20-05:00 (calendar days in America/New_York, across DST). Only collection counts were inspected; no P1–P4 outcomes were computed. The original event and zero days remain, and FALSIFICATION.md stays byte-for-byte unchanged. Instrument tests are not substantive observations. The interrupted window is insufficient for confirmatory conclusions; any future restarted study needs a separately versioned prospective protocol. Reverse: append a dated protocol amendment, never rewrite the original registration.
+
+## 2026-10-29 — Correct collector and study-readiness claims
+
+- 2026-10-29 · Add --ignore-working-copy to the source and installed jj collector query. The prior query could snapshot the working copy during background polling. Close-together operation timestamps do not prove the poller caused a particular divergence; no such causal claim is made. Reverse: revert the flag only with an alternative demonstrably read-only query.
+
+- 2026-10-29 · Pause the installed LaunchAgent and preserve the ledger/checkpoints pending a prospective attribution rule. mine() matches author identity, not human agency; agent-authored commits under the maintainer email were eligible and cannot be treated as human-only work. Existing observations are contaminated for that interpretation, not silently relabeled or deleted. With one consented synapse and constant commit utility, this study is underpowered and P1–P4 remain indeterminate; do not extend repeatedly or add repositories without consent. Reverse: resume only after a documented eligibility rule and viable sampling plan are in place.
+
+- 2026-10-29 · Correct the earlier assertion that leaving FALSIFICATION.md untouched was sufficient: its Extensions log explicitly requests extension entries. Fill Extension 1 there, retaining all hypotheses and thresholds verbatim, and link the collection pause. The earlier request to use DECISIONS.md explains the location chosen but does not remove the protocol's own record requirement. Reverse: append a correction rather than erasing this history.
+
+## 2026-10-29 — Operation-head and placeholder boundary correction
+
+- 2026-10-29 · Correct the earlier read-only verification claim: --ignore-working-copy suppresses snapshots but can still reconcile divergent operation heads. Add --at-op @ to both collector copies so ambiguous heads fail the poll instead of being reconciled. A real two-head regression probe preserves both heads and the operation-store count, emits no event, and leaves seen unchanged. This establishes the tested boundary, not a general proof against every filesystem race. Collection remains unloaded. Reverse: replace only with an explicitly nonmutating operation selection strategy.
+
+- 2026-10-29 · Exclude empty, undescribed jj changes from both initialization and collection queries using `~ (empty() & description(exact:""))`. They are placeholders, not evidence of completed work. Test two abandoned-in-place placeholders, then fill the same change and verify it remains eligible exactly once. The old change-ID checkpoint could suppress later substantive work after premature recording; do not rewrite seen or fabricate missing observations retrospectively. Empty described changes and empty merges remain a prospective eligibility-policy question before collection resumes; this filter alone does not establish human work or meaningful utility.
+
+- 2026-10-29 · Preserve the existing study ledger as collected, including suspected placeholder observations. Zero changed-file counts alone do not prove a row was a placeholder (merges can also have zero counts). The prior query demonstrably permitted placeholders, so the ledger cannot support a claim that every event represents substantive work. Record this collection defect alongside the agent-attribution confound; do not delete or relabel rows. Reverse: only append independently corroborated quality annotations, preserving original rows.
+
 ## 2026-10-29 — Resume v0.4 engineering
 
 - 2026-10-29 · Implement the read-only `--session-diff <before-run.json> <after-run.json>` command first. It compares existing RunLog decay snapshots before app-state initialization, reports unavailable legacy telemetry without inventing zeros, and refuses non-finite telemetry. Two endpoints are not a reconstructed trajectory; no study-ledger outcome analysis is involved. Shadow Context remains the next independent increment, requiring explicit fork/return/promotion choices, anchor-specific persistence, and recoverable state switching. Reverse: remove the additive command; no persisted schema was changed.
