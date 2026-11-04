@@ -47,6 +47,7 @@ results.
 
 Extensions log:
 - [x] Extension 1 — recorded 2026-10-29; reason: collection failure and unmet minimum data requirements; new end date: 2026-11-03T23:53:20-05:00. Collection subsequently paused on 2026-10-29 for unresolved agent/human attribution; this extension does not establish study eligibility. See docs/journal/DECISIONS.md.
+- [x] Run 1 closed — recorded 2026-11-04; Extension 1 expired 2026-11-03T23:53:20-05:00 with minimum data requirements unmet (16 events, 1 distinct synapse, 3 active days). Outcome: **collection failure, not analysed.** No further extension: collection was paused, so an extension would add days without data. Only threshold counts were inspected; no prediction was evaluated. Ledger rows are preserved as collected and are not carried into run 2. Run 2 is pre-registered in `docs/study/PREREGISTRATION-v2.md`; this file's hypotheses and thresholds are unchanged.
 
 ---
 

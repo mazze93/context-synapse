@@ -6,7 +6,7 @@ Branch `study/preregistration-v2` off `main` @ `cf9e814`. Read PLAN.md, then
 DECISIONS.md § 2026-11-04. Continue at the first unchecked phase.
 
 - [x] **A0. Scaffold** — plan, decisions, intent row
-- [ ] **A1. Close run 1** — FALSIFICATION.md extensions-log append
+- [x] **A1. Close run 1** — FALSIFICATION.md extensions-log append
 - [ ] **A2. Sign-off filter** — collector revset + test
 - [ ] **A3. Pre-register v2** — docs/study/PREREGISTRATION-v2.md, then PR
 
