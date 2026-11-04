@@ -168,7 +168,7 @@ labelled **exploratory** and may not be presented as confirmatory.
 
 | ID | Prediction | Result | Statistic | Notes |
 |----|-----------|--------|-----------|-------|
-| P1 | Amplifier specificity | [ ] confirmed [ ] falsified [ ] indeterminate | rho = ____ | |
-| P2 | Rank crossover | [ ] confirmed [ ] falsified [ ] indeterminate | n = ____ | |
-| P3 | Prior stickiness | [ ] confirmed [ ] falsified [ ] indeterminate | | |
-| P4 | Rot/error independence | [ ] confirmed [ ] falsified [ ] indeterminate | rho = ____ | |
+| P1 | Amplifier specificity | [ ] confirmed [ ] falsified [x] indeterminate | rho = n/a | Run 1 closed 2026-11-04 — minimum data unmet; not analysed |
+| P2 | Rank crossover | [ ] confirmed [ ] falsified [x] indeterminate | n = n/a | Run 1 closed 2026-11-04 — minimum data unmet; not analysed |
+| P3 | Prior stickiness | [ ] confirmed [ ] falsified [x] indeterminate |  | Run 1 closed 2026-11-04 — minimum data unmet; not analysed |
+| P4 | Rot/error independence | [ ] confirmed [ ] falsified [x] indeterminate | rho = n/a | Run 1 closed 2026-11-04 — minimum data unmet; not analysed |
