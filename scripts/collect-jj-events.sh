@@ -21,7 +21,10 @@ salt=$(cat "$salt_file")
 hash() { shasum -a 256 | cut -d' ' -f1; }
 # No messages, filenames, branches or author identities enter these rows.
 # Exclude the open working copy; a change becomes observable after jj commit/new.
-rows=$("$CONTEXT_SYNAPSE_JJ" --ignore-working-copy --at-op @ log -r 'mine() ~ @ ~ (empty() & description(exact:""))' --no-graph \
+# Run 2 eligibility (docs/study/PREREGISTRATION-v2.md): a signed-off directive.
+# GitHub-committed copies (squash merges) duplicate local changes; never count them.
+eligible='mine() & description(regex:"(?m)^Signed-off-by: Mazze LeCzzare Frazer") ~ committer_email(exact:"noreply@github.com")'
+rows=$("$CONTEXT_SYNAPSE_JJ" --ignore-working-copy --at-op @ log -r "($eligible) ~ @ ~ (empty() & description(exact:\"\"))" --no-graph \
   -T 'change_id ++ " " ++ commit_id ++ "\n"')
 if [[ ${3:-} == --initialize ]]; then
   [[ ! -e "$state/seen" ]] || { echo 'Already initialized; baseline unchanged' >&2; exit 1; }
