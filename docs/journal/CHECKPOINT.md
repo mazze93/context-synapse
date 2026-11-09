@@ -30,10 +30,10 @@ remain unchanged. The study is underpowered; further extensions are not automati
   App heartbeat `merge-context-synapse-40-after-review-passes` checks every
   15 minutes and is authorized to merge only after those conditions pass.
 - #50: collector repair plus correction `bedb18fb`: snapshot suppression in
-  source and pinned copy, collection paused, attribution confound recorded. PR open.
+  source and pinned copy, collection paused, attribution confound recorded. Merged to main (`cf9e814`).
 - #51: release/roadmap reconciliation, #44 close-proof entry, ethics correction,
   and this checkpoint. v0.3.0 is released; v0.4 is partly shipped. No new tag cut.
-- #52: read-only `--session-diff` for two saved RunLogs. PR open.
+- #52: read-only `--session-diff` for two saved RunLogs. Merged to main (`987dfe7`).
 - #53: draft explicit Shadow Context CLI fork/return/promotion, separate anchor
   histories and atomic selection index; retained-shadow resume/list and SwiftUI
   context selection remain deferred. No operator-state inference.

@@ -53,8 +53,8 @@ Architecture decisions live in [`docs/adr/`](docs/adr/) — start with the
 ## v0.4.0 — Rot Layer + Lighthouse
 
 Partially shipped in the v0.3.0 tag. No v0.4.0 release tag exists yet.
-Next engineering order: session-diff CLI (read-only), then explicit Shadow
-Context forks and promotion with anchor-specific histories. The manager does
+The read-only session-diff CLI shipped on main in #52 (untagged). Next:
+explicit Shadow Context forks and promotion with anchor-specific histories (#53). The manager does
 not yet apply `cauterizedDecayConstant`; keep that integration open.
 
 - [x] `SynapseManager.swift` — persisted session synapses, explicit lighthouse binding, circuit passes, and RSA epochs (included in v0.3.0; shadow forks remain below)
@@ -62,7 +62,7 @@ not yet apply `cauterizedDecayConstant`; keep that integration open.
 - [x] CLI lighthouse re-sync breadcrumb (SwiftUI integration remains separate): `⚓ Lighthouse: [description] — saliency [X]% — last touched [N]min ago`
 - [ ] Shadow Context fork mechanism (side-quest sandbox, breadcrumb trail)
 - Removed: cursor/scroll/webcam inference of operator state (Track A ADR-002 permanent boundary; opt-in does not override it)
-- [ ] Session diff CLI command: compare two run logs across decay/rot/lighthouse trajectories
+- [x] Session diff CLI command: `--session-diff` compares two saved run logs' decay/rot/lighthouse snapshots (#52, on main, untagged; endpoints only, no reconstructed trajectory)
 - [ ] `SynapseManager` integration: detect `requiresCauterization`, apply cauterized decay constant
 - [ ] Lighthouse promotion workflow: explicit user choice to make side-quest the new primary
 
