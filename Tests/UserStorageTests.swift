@@ -69,13 +69,18 @@ final class UserStorageTests: XCTestCase {
             guard FileManager.default.fileExists(atPath: usersDir.appendingPathComponent("AdaName").path) else {
                 throw XCTSkip("Case-sensitive volume: the legacy alias cannot differ from the stored name by case.")
             }
+            var reported: String?
             XCTAssertThrowsError(try UserStorage.validate("Ada.Name", usersDir: usersDir)) { error in
-                guard case UserStorage.ValidationError.ambiguousLegacy(let key) = error else {
-                    return XCTFail("Expected ambiguousLegacy, got \(error)")
+                if case UserStorage.ValidationError.ambiguousLegacy(let key) = error {
+                    reported = key
+                } else {
+                    XCTFail("Expected ambiguousLegacy, got \(error)")
                 }
-                // The reported name must be the one that opens the stored state.
-                XCTAssertEqual(key, "adaname")
-                XCTAssertNoThrow(try UserStorage.validate(key, usersDir: usersDir))
+            }
+            // The reported name must be the one that opens the stored state.
+            XCTAssertEqual(reported, "adaname")
+            if let reported {
+                XCTAssertNoThrow(try UserStorage.validate(reported, usersDir: usersDir))
             }
         }
     }
