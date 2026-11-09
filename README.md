@@ -309,3 +309,15 @@ files. Back up the index and context files together. To reverse a promotion,
 stop writers and restore the prior index from backup (or use its retained
 `priorPrimaries` ID); do not delete context directories as a rollback mechanism.
 No webcam, cursor, scroll, affect, or operator-state inference is involved.
+### Compare two saved runs
+
+```bash
+contextsynapse --session-diff before-run.json after-run.json
+```
+
+Reads two existing RunLog JSON files and reports before/after decay weight,
+rot score, lighthouse saliency, referee mode, and intervention state. Numeric
+deltas follow the supplied order. Older logs without complete decay telemetry
+show `unavailable`; the command never substitutes zero or infers intermediate
+trajectories. It exits before app-state initialization and writes no files.
+Malformed/missing files exit 1; invalid command arguments exit 2.

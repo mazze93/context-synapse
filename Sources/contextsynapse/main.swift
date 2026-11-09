@@ -6,6 +6,9 @@ import SynapseCore
 // He renders on every query. His state IS the system's state.
 
 let args = CommandLine.arguments
+if args.contains("--session-diff") {
+    exit(SessionDiffCommand.run(args))
+}
 let instrumentFlags = ["--record", "--export-events", "--events-summary"]
 let stateFlags = ["--fork-shadow", "--return-primary", "--promote-shadow", "--lighthouse", "--resync", "--rsa", "--referee", "--export", "--import"]
 if instrumentFlags.contains(where: args.contains) && stateFlags.contains(where: args.contains) {
