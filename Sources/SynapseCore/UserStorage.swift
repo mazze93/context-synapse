@@ -49,8 +49,19 @@ enum UserStorage {
             let legacy = user.components(separatedBy: CharacterSet(charactersIn: "/\\:.")).joined()
             if legacy != user, !legacy.isEmpty,
                fm.fileExists(atPath: usersDir.appendingPathComponent(legacy).path) {
-                throw ValidationError.ambiguousLegacy(legacy)
+                // Report the name as stored on disk: on a case-insensitive volume
+                // `legacy` may match a directory spelled differently, and only the
+                // stored spelling passes the exact-name check above.
+                throw ValidationError.ambiguousLegacy(storedName(matching: legacy, in: usersDir) ?? legacy)
             }
         }
+    }
+
+    /// The directory entry that `name` resolves to on this volume: an exact
+    /// match first, then a case- or normalization-insensitive one.
+    static func storedName(matching name: String, in usersDir: URL) -> String? {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: usersDir.path) else { return nil }
+        if names.contains(name) { return name }
+        return names.first { $0.compare(name, options: [.caseInsensitive]) == .orderedSame }
     }
 }

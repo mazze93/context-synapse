@@ -62,6 +62,24 @@ final class UserStorageTests: XCTestCase {
         }
     }
 
+    func testAmbiguousLegacyNamesTheStoredSpelling() throws {
+        try withRoot { root in
+            _ = try SynapseCore(user: "adaname", baseOverride: root)
+            let usersDir = root.appendingPathComponent("ContextSynapse/users")
+            guard FileManager.default.fileExists(atPath: usersDir.appendingPathComponent("AdaName").path) else {
+                throw XCTSkip("Case-sensitive volume: the legacy alias cannot differ from the stored name by case.")
+            }
+            XCTAssertThrowsError(try UserStorage.validate("Ada.Name", usersDir: usersDir)) { error in
+                guard case UserStorage.ValidationError.ambiguousLegacy(let key) = error else {
+                    return XCTFail("Expected ambiguousLegacy, got \(error)")
+                }
+                // The reported name must be the one that opens the stored state.
+                XCTAssertEqual(key, "adaname")
+                XCTAssertNoThrow(try UserStorage.validate(key, usersDir: usersDir))
+            }
+        }
+    }
+
     func testConflictingProfileIsNotOverwritten() throws {
         try withRoot { root in
             let directory = root.appendingPathComponent("ContextSynapse/users/Ada")
