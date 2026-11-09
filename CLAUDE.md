@@ -8,8 +8,9 @@ Not a consumer product — built by and for a neurodivergent developer exploring
 ## CURRENT STATE — START HERE
 
 **Version:** v0.3 bedrock layer is **merged to `main`** (PR #12: SynapticCircuit
-actor, CircuitTypes, FaultInjectionSuite, ADRs). Latest release tag is still
-`v0.1.0` — no v0.3 tag has been cut. Docs rewrite (PR #11) and CodeRabbit test
+actor, CircuitTypes, FaultInjectionSuite, ADRs). Latest release tag is
+`v0.3.0` (2026-09-21), including session persistence, on-device AI, and the
+instrument ledger; v0.4 remains partially shipped. Docs rewrite (PR #11) and CodeRabbit test
 generation (PR #13, added `Tests/SynapticCircuitTests.swift`) are also merged.
 **Branch model:** all work on feature branches, PRs against `main`.
 
@@ -138,8 +139,8 @@ Key methods on `SynapseCore`:
 
 ### Layer 2: Decay & Rot (`SynapseWeightState.swift`)
 
-Per-synapse mutable weight state. Currently instantiated **per-query** in the CLI.
-`SynapseManager` (v0.4 target) will own session-level persistence.
+Per-synapse mutable weight state. The CLI computes per-query display state; `SynapseManager` also persists
+session-level synapse snapshots and RSA epochs in `session.json`.
 
 Core math:
 ```
@@ -259,7 +260,7 @@ a lighthouse is loaded.
   Surfaced and fixed: `@Sendable` on AIClient closures, per-call
   `StandardErrorStream` instead of a shared mutable global.
 
-### P1 — v0.3.0 remaining items — ALL DONE (branch `claude/v0.3-ci-repair-and-p1`)
+### P1 — v0.3.0 acceptance items — ALL DONE on main
 
 - [x] **`Tests/DecayWeightTests.swift`** — floor invariant, cauterization
   threshold, decay monotonicity (+ lighthouse-never-rots, connectivity slows
