@@ -37,7 +37,8 @@ with tempfile.TemporaryDirectory(prefix='jj-collector-boundaries-') as temp:
     assert not calls.exists(), 'Empty undescribed placeholders must not be recorded'
     jj('edit', placeholder)
     (repo / 'work.txt').write_text('real fixture work\n')
-    jj('commit', '-m', 'fixture work')
+    # Signed: run 2 counts only signed-off directives (PREREGISTRATION-v2).
+    jj('commit', '-m', 'fixture work\n\nSigned-off-by: Mazze LeCzzare Frazer <mazze@mazzeleczzare.com>')
     assert poll().returncode == 0
     assert len(calls.read_text().splitlines()) == 1, 'Previously empty change must remain eligible'
     assert poll().returncode == 0

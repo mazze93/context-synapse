@@ -136,8 +136,12 @@ bash scripts/install-jj-collector.sh "$PWD"
 The installer pins a copy of the CLI and collector under Application Support;
 it does not depend on a terminal's PATH or a mutable build output. A per-user
 LaunchAgent checks this checkout every 60 seconds while logged in. No network
-is involved. Only `mine() ~ @ ~ (empty() & description(exact:""))` changes are eligible: changes authored under the
-configured jj identity, excluding the open working copy. Use ordinary `jj commit`
+is involved. Eligible changes (run 2, `docs/study/PREREGISTRATION-v2.md`) are
+authored under the configured jj identity (`mine()`), carry a
+`Signed-off-by: Mazze LeCzzare Frazer` line, are not committed by
+`noreply@github.com` (GitHub squash-merge copies of work already recorded),
+and exclude the open working copy and empty undescribed placeholders. An
+unsigned change is not an observation. Use ordinary `jj commit`
 or `jj new` to finalize a change. Changing jj identity or importing new changes
 by that identity changes eligibility; audit those actions during the study.
 
