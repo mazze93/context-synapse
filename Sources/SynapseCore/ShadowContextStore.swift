@@ -32,7 +32,10 @@ public final class ShadowContextStore {
     public var isShadow: Bool { index.shadow != nil }
     public var priorPrimaryIDs: [String] { index.priorPrimaries }
 
-    public init(core: SynapseCore) throws {
+    /// - Parameter verifyActiveContext: probe the selected shadow's anchor and
+    ///   session before use. Pass `false` only for the explicit return path, so a
+    ///   damaged shadow can still be left; the index itself is always validated.
+    public init(core: SynapseCore, verifyActiveContext: Bool = true) throws {
         self.core = core
         root = core.configURL.deletingLastPathComponent()
         indexURL = root.appendingPathComponent("contexts.json")
@@ -52,7 +55,7 @@ public final class ShadowContextStore {
         } else { index = Index() }
         // Fail closed rather than quietly switching anchors when selected data
         // is missing or malformed. Original primary may legitimately have none.
-        if activeID != "primary" {
+        if verifyActiveContext, activeID != "primary" {
             _ = try loadLighthouse()
             if FileManager.default.fileExists(atPath: sessionURL.path) {
                 _ = try JSONDecoder().decode(SessionState.self, from: Data(contentsOf: sessionURL))

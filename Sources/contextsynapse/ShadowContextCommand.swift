@@ -3,7 +3,10 @@ import SynapseCore
 
 enum ShadowContextCommand {
     static func prepare(args: [String], core: SynapseCore) throws -> ShadowContextStore {
-        let store = try ShadowContextStore(core: core)
+        // --return-primary is the documented way out of a damaged shadow, so it
+        // must not depend on the shadow's own files being readable.
+        let store = try ShadowContextStore(core: core,
+                                           verifyActiveContext: !args.contains("--return-primary"))
         let commands = ["--fork-shadow", "--return-primary", "--promote-shadow"]
         let supplied = commands.filter { args.contains($0) }
         guard supplied.count <= 1 else { throw CommandError.usage }
