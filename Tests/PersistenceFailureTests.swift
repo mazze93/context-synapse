@@ -32,7 +32,7 @@ final class PersistenceFailureTests: XCTestCase {
         let root = try makeReadOnlyRoot()
         defer { makeWritableAgain(root) }
 
-        let core = SynapseCore(folderName: "CS_\(UUID().uuidString)",
+        let core = try SynapseCore(folderName: "CS_\(UUID().uuidString)",
                                user: "u",
                                baseOverride: root)
 
@@ -46,7 +46,7 @@ final class PersistenceFailureTests: XCTestCase {
         let root = try makeReadOnlyRoot()
         defer { makeWritableAgain(root) }
 
-        let core = SynapseCore(folderName: "CS_\(UUID().uuidString)",
+        let core = try SynapseCore(folderName: "CS_\(UUID().uuidString)",
                                user: "u",
                                baseOverride: root)
 
@@ -70,7 +70,7 @@ final class PersistenceFailureTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let core = SynapseCore(folderName: "CS_\(UUID().uuidString)",
+        let core = try SynapseCore(folderName: "CS_\(UUID().uuidString)",
                                user: "u",
                                baseOverride: root)
 
