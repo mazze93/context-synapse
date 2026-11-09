@@ -1,5 +1,22 @@
 # Checkpoint — resume here if the session drops
 
+## Active — 2026-11-04: study v2 pre-registration (Phase A)
+
+Branch `study/preregistration-v2` off `main` @ `cf9e814`. Read PLAN.md, then
+DECISIONS.md § 2026-11-04. Continue at the first unchecked phase.
+
+- [x] **A0. Scaffold** — plan, decisions, intent row
+- [x] **A1. Close run 1** — FALSIFICATION.md extensions-log append
+- [x] **A2. Sign-off filter** — collector revset + test
+- [x] **A3. Pre-register v2** — docs/study/PREREGISTRATION-v2.md, then PR
+
+Deferred / needs-user:
+- Phase B (colocate meridian, agelace, claude-code-skills; install collectors) — separate go-ahead
+- Phase C (Meridian comparison protocol, MAX) — own session
+- Agents other than Claude (Codex, Copilot) do not stamp sign-off; decide whether to require it
+- Local unpushed docs commits `81f9f14`, `c9a594f` (+ CHECKPOINT rewrite) sit off-main; untouched
+- Stale conflicted bookmark `codex/jj-study-collector` (merged as #50); untouched
+
 ## Active — 2026-08-18: pivot from GitButler to jujutsu (jj)
 
 Adopting jj for this repo after GitButler friction (raw commits were hook-
