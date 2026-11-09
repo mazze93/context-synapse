@@ -1,5 +1,22 @@
 # Checkpoint — 2026-10-29
 
+## Active — 2026-11-04: study v2 pre-registration (Phase A)
+
+Branch `study/preregistration-v2` off `main` @ `cf9e814`. Read PLAN.md, then
+DECISIONS.md § 2026-11-04. Continue at the first unchecked phase.
+
+- [x] **A0. Scaffold** — plan, decisions, intent row
+- [x] **A1. Close run 1** — FALSIFICATION.md extensions-log append
+- [x] **A2. Sign-off filter** — collector revset + test
+- [x] **A3. Pre-register v2** — docs/study/PREREGISTRATION-v2.md, then PR
+
+Deferred / needs-user:
+- Phase B (colocate meridian, agelace, claude-code-skills; install collectors) — separate go-ahead
+- Phase C (Meridian comparison protocol, MAX) — own session
+- Agents other than Claude (Codex, Copilot) do not stamp sign-off; decide whether to require it
+- Local unpushed docs commits `81f9f14`, `c9a594f` (+ CHECKPOINT rewrite) sit off-main; untouched
+- Stale conflicted bookmark `codex/jj-study-collector` (merged as #50); untouched
+
 ## Collection paused — 2026-10-29 correction
 
 A controlled empty `jj commit` (`0fbe0004`) left the study ledger unchanged at
@@ -34,6 +51,7 @@ remain unchanged. The study is underpowered; further extensions are not automati
 - #51: release/roadmap reconciliation, #44 close-proof entry, ethics correction,
   and this checkpoint. v0.3.0 is released; v0.4 is partly shipped. No new tag cut.
 - #52: read-only `--session-diff` for two saved RunLogs. Merged to main (`987dfe7`).
+- #55: close study run 1 and pre-register run 2 (Phase A). Merged to main (`fc48f8c`).
 - #53: draft explicit Shadow Context CLI fork/return/promotion, separate anchor
   histories and atomic selection index; retained-shadow resume/list and SwiftUI
   context selection remain deferred. No operator-state inference.
