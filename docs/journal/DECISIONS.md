@@ -302,3 +302,7 @@
 ## 2026-10-29 — PR #40 final review repair
 
 - 2026-10-29 · Preserve existing exact-owned `Default`/`DEFAULT` namespaces before rejecting creation of new variants of the built-in default. Greptile identified that the early validation guard made legacy saved state inaccessible. Move the reservation to the new-directory branch and test existing ownership/session preservation plus rejection before writes. Reverse: revert this focused validation adjustment only if a replacement preserves existing owners.
+
+## 2026-11-27 — codegraph tool and review
+
+- 2026-11-27 · Keep the generated Obsidian vault (`codegraph-vault/`) out of git and commit only the generator, its config and the review notes. A committed projection can never include the commit that adds it, it is fully derivable from history in seconds, and it is about 850 files of churn per regeneration. Reverse: remove the `.gitignore` entry and commit a vault snapshot if a static copy is needed for readers without Python.

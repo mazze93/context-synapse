@@ -1,0 +1,17 @@
+{
+  "schema": "codegraph-config/1",
+  "project": "context-synapse",
+  "language": "swift",
+  "manifest": "swiftpm",
+  "exclude_prefixes": [".build/", "site/", "codegraph-vault/"],
+  "module_fallback": [
+    {"prefix": "Sources/", "segment": 1},
+    {"prefix": "Tests/", "name": "Tests"}
+  ],
+  "api_probes": [
+    "hashValue", "Date()", "UUID()", "random()", "print()", "fatalError()",
+    "precondition()", "try!", "as!", "ProcessInfo", "FileManager", "URLSession"
+  ],
+  "test_modules": ["BayesianConvergenceTests", "Tests"],
+  "output_dir": "codegraph-vault"
+}
