@@ -219,3 +219,7 @@ __marimo__/
 # belt-and-suspenders: such records must never be committed or reach CI logs.
 ai-benchmark-*.json
 ai-records/
+
+# codegraph output: derived from git history, regenerate with
+# python3 tools/codegraph/codegraph.py (see tools/codegraph/README.md)
+codegraph-vault/
