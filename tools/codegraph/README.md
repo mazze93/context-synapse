@@ -96,6 +96,10 @@ functions and closures fold into their enclosing declaration; properties
 count toward their type. These limits show up as missing or ambiguous
 edges, never as crashes.
 
+A function used as a value without parentheses, such as
+`.map(EventLedger.csvEscape)`, gets no edge yet, so it can appear in the
+review's "private functions with no caller" list. Treat that list as leads.
+
 ## Layout (adapter boundary)
 
 ```
